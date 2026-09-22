@@ -1,7 +1,7 @@
 # แผนงาน: P2S Inventory — ระบบจัดหาสินค้า–เบิกจ่าย–เข้าคลัง (Procure-to-Stock)
 
-> เอกสารนี้สรุปสิ่งที่คุยกันไว้ทั้งหมด เพื่อใช้เริ่มสร้างโปรเจกต์ใหม่แยกจาก EA (แต่ทำตามแบบแผนโครงสร้าง/สแตกเดียวกัน)
-> ชื่อโปรเจกต์: **P2S Inventory** (Procure-to-Stock / Pay-to-Stock), โฟลเดอร์/repo: `D:\GitSource\P2SInventory`
+> เอกสารนี้สรุปสิ่งที่คุยกันไว้ทั้งหมด **อัปเดตให้ตรงกับของจริงในโค้ดแล้ว** (rev. 2026-09-22 หลัง Phase 0-3 เสร็จ)
+> ชื่อโปรเจกต์: **P2S Inventory** (Procure-to-Stock / Pay-to-Stock), โฟลเดอร์/repo: **`D:\GitSource\P2S`** (ไม่ใช่ `P2SInventory` ตามที่ร่างไว้ตอนแรก — ใช้ repo ที่มีอยู่แล้วแทน)
 
 ## 1. Requirement เดิม (สรุปจากผู้ใช้)
 
@@ -16,130 +16,169 @@
 9. **ขอบเขตระบบนี้จบที่ "เข้าคลัง/เบิกออกจากคลัง"** — กระบวนการเบิกเงิน (reimbursement) เป็นแทร็กแยกที่ผูกกับ order/cancellation เท่านั้น
 10. ของเข้าคลัง (inventory) เป็น **auto** ทันทีที่ confirm ว่าได้รับของแล้ว (ไม่ต้องกดสร้างซ้ำ) และระบบต้องมี**ฟังก์ชันเบิกของออกจากคลัง** (stock withdrawal) — ส่วนการขายจริง/บันทึกยอดขายเป็นคนละระบบ แต่ "เบิกออก" (ลด qty คงเหลือ พร้อมเหตุผล/ผู้เบิก) อยู่ในสโคปนี้
 
-## 2. Data Model (สรุป)
+## 2. Data Model (ของจริงในโค้ด — ต่างจากร่างแรกในหลายจุด)
+
+> Entities ทั้งหมดอยู่ที่ [Backend/P2S.Api/Data/Entities](Backend/P2S.Api/Data/Entities) เป็น EF Core code-first, migration แรก: [InitialCreate](Backend/P2S.Api/Data/Migrations)
 
 ### 2.1 Authentication & Master Data
 
-- **users** — ผู้ใช้งานระบบ: `username` (login, **ไม่ใช้ email**), `password_hash`, `full_name`, `role` (staff/finance/admin), `is_active`, เลขบัตรท้าย 4 หลัก (สำหรับ staff ที่กดสั่งของ)
-  - Login ด้วย username + password เท่านั้น — ไม่มี field email เป็น identifier, ไม่มี email verification/reset flow
-  - Session: JWT (ตาม pattern เดียวกับ EA ถ้ามี) หรือ cookie-based ก็ได้ พิจารณาตอน scaffold backend
-- **roles** — master data สิทธิ์การเข้าถึง (staff กดสั่งของ/สแกนรับของ, finance อนุมัติเบิก, admin จัดการ master data ทั้งหมด)
-- **platforms** — master data enum/table SP / TT / AM (เผื่อเพิ่ม platform ใหม่ในอนาคตโดยไม่ต้อง deploy code ใหม่ — ทำเป็นตาราง ไม่ hardcode enum)
-- **withdrawal_reasons** — master data เหตุผลการเบิกออกจากคลัง (ขาย/ชำรุด/โอนย้าย/อื่นๆ) ให้ admin แก้ไขได้
+- **users** — `username` (login, **ไม่ใช้ email**), `password_hash` (BCrypt), `full_name`, `role_id`, `is_active`, `card_last4`
+  - Login ด้วย username + password เท่านั้น (JWT) — ไม่มี self-serve reset เพราะไม่มี email → **admin reset password ให้แทน** (`POST /api/auth/admin-reset-password`, admin-only)
+- **roles** — staff / finance / admin (seed แล้ว)
+- **platforms** — SP / TT / AM (seed แล้ว, เป็นตาราง ไม่ hardcode enum)
+- **withdrawal_reasons** — ขาย / ชำรุด / โอนย้าย / อื่นๆ (seed แล้ว)
+- **products** *(เพิ่มจากร่างแรก)* — มาสเตอร์สินค้า `name`, `sku_code`, `unit` — เหตุผล: ร่างแรกไม่มีตารางนี้ ทำให้สินค้าชิ้นเดิมที่สั่งหลายรอบมีชื่อสะกดไม่ตรงกันในแต่ละ order_item ใช้งานหน้า Inventory จริงไม่ได้ → ตัดสินใจเพิ่มระหว่าง review
 
 ### 2.2 Transaction Tables
 
-- **purchase_orders** — 1 record ต่อ 1 ครั้งกดสั่ง (platform, เลขออเดอร์จากแอพ, ยอดเงิน, สถานะ)
-  - status: `ordered → paid_by_staff → reimbursed` (จบที่นี่ — สถานะของว่ามาส่งหรือยังอยู่ระดับ order_item)
-- **order_items** — แตกรายชิ้นในออเดอร์เดียว (เพราะของมาไม่พร้อมกัน)
-  - item_status: `pending → arrived` (ไปต่อ inventory_items) หรือ `cancelled` (ไม่เข้าคลัง แต่คง record ไว้)
-- **reimbursements** — คำขอเบิกเงินสด ผูกกับหลาย purchase_orders, สถานะ pending/approved/paid
-  - **เป็นแทร็กแยกจากการเข้าคลังโดยสมบูรณ์** — ผูกกับ purchase_order/cancellation เท่านั้น ไม่ผูกกับ inventory
-- **deliveries** — บันทึกการรับของจริง ผูก QR code ที่ระบบ generate เอง (ไม่พึ่งบาร์โค้ดร้าน กันปัญหาโทรศัพท์หลายรุ่น)
-- **inventory_items** — **auto สร้างทันทีที่ order_item ถูก confirm ว่า arrived** (ไม่ต้องมีคนกดสร้างซ้ำ): sku_name, qty_received, qty_on_hand (ลดลงเมื่อมีการเบิกออก), cost_per_unit (= ราคาที่จ่ายจริงต่อชิ้น, ไว้คิดต้นทุน), received_at, status (`in_stock` / `depleted` เมื่อ qty_on_hand=0)
-- **inventory_withdrawals** — ฟังก์ชันเบิกของออกจากคลัง: inventory_item_id, qty, withdrawn_by, withdrawn_at, reason (เช่น "ขาย", "ชำรุด", "โอนย้าย") — บันทึกทุกครั้งที่เบิกออก, ตัด qty_on_hand ของ inventory_item ที่ผูกอยู่ (ส่วนระบบขาย/POS จริงเป็นคนละระบบ แค่เรียกฟังก์ชันนี้เพื่อตัดสต๊อก)
-- **cancellations** — เคสร้านยกเลิกหลังจ่าย/เบิกไปแล้ว, ผูกกับ order_item + reimbursement เดิม, flag ให้ฝ่ายการเงินหักยอด/ขอคืนรอบถัดไป (`refund_pending → refunded / adjusted`)
-- **daily_finance_snapshot** — สรุปยอดรายวัน: ยอดสั่ง, ยอดเบิกค้าง, มูลค่าที่เข้าคลังวันนี้, เคสยกเลิกที่ยังไม่เคลียร์ — รันผ่าน scheduled job
+- **purchase_orders** — platform, `platform_order_no`, `total_amount`, status: `Ordered → PaidByStaff → Reimbursed`
+- **order_items** — แตกรายชิ้น ผูก `product_id`, status: `Pending → Arrived` (ไปต่อ inventory_item) หรือ `Cancelled`
+  - **`tracking_no` / `courier`** *(เพิ่มจากร่างแรก)* — เพราะตัดสินใจใช้**บาร์โค้ด/เลข tracking ของร้าน**สแกนตอนรับของ (ไม่ใช่ QR ที่ระบบ generate เอง อย่างที่ร่างแรกวางแผนไว้) พนักงานต้องกรอกเลข tracking หลังร้านจัดส่ง
+- **reimbursements** — แทร็กแยกจาก inventory โดยสมบูรณ์, ผูกกับหลาย purchase_orders (many-to-many), status: `Pending → Approved → Paid`
+- **deliveries** — บันทึก scan event จริง (`scanned_code`, `match_method`: Barcode / ManualTrackingEntry / OrderNumberSearch) — ไม่ใช่ QR ที่ระบบ gen เองตามร่างแรก เพราะกล่องที่มาส่งติดสติกเกอร์ร้าน ไม่ใช่ QR ของเรา ต้องมี fallback ค้นด้วยเลขออเดอร์เสมอ (สแกนบาร์โค้ดร้านไม่ติดทุกกล่อง)
+- **inventory_items** — **เป็น lot ไม่ใช่ยอดรวมต่อ SKU** *(เปลี่ยนจากร่างแรก)*: auto สร้างทันทีที่ order_item เป็น `Arrived`, ผูก `product_id` + `order_item_id` (1 lot = 1 ครั้งที่รับของ), `qty_received`, `qty_on_hand`, `cost_per_unit`, status: `InStock` / `Depleted`
+  - **optimistic concurrency token** (`row_version`, app-managed เพราะ MySQL ไม่มี native rowversion) — กันเบิกพร้อมกัน 2 คนแล้ว `qty_on_hand` ติดลบ
+- **inventory_withdrawals** — `inventory_item_id`, `qty`, `withdrawal_reason_id`, `withdrawn_by`, `withdrawn_at`
+- **cancellations** — ผูก order_item + reimbursement (nullable — null ถ้ายังไม่เคยเบิกตอนถูกยกเลิก), status: `RefundPending → Refunded / Adjusted`
+- **staff_ledger_entries** *(เพิ่มจากร่างแรก — จุดสำคัญที่สุดที่แก้)* — บันทึกทุกรายการเคลื่อนไหวยอดของพนักงานแต่ละคนกับบริษัท: `entry_type` (AdvancePaid / Reimbursed / RefundDue / RefundSettled / Adjustment), `amount`, ผูก related purchase_order/reimbursement/cancellation ได้
+  - เหตุผล: ร่างแรกมีแค่ `cancellations.status` ตอบไม่ได้ว่า "ตอนนี้พนักงานคนไหนติดหนี้บริษัทเท่าไหร่" (เคสร้านยกเลิกหลังเบิกเงินแล้ว เงินเข้าบัตรพนักงานแทน = พนักงานเป็นหนี้บริษัท) — `SUM(amount)` ต่อ user คือยอดค้างจริง
+- **daily_finance_snapshots** — รันทุกวัน **23:59 เวลาไทย (Asia/Bangkok, UTC+7 fixed offset)** ผ่าน `DailyFinanceSnapshotBackgroundService`: `total_ordered_amount` (ยอดสั่งของวันนั้น), `total_reimbursement_pending` (ยอดเบิกค้างสะสม ไม่ scope ตามวัน), `total_inventory_value_today` (มูลค่าที่รับเข้าคลังวันนั้น), `open_cancellations_count` (เคสยกเลิกที่ยังไม่เคลียร์สะสม)
 
-รายละเอียด field ระดับตารางอยู่ในข้อความแชทก่อนหน้า (จะย้ายไปทำเป็น EF Core entities ในขั้นตอนถัดไป)
+**ตารางที่ร่างแรกวางแผนไว้แต่ตัดออกจากการ implement จริง**: ไม่มี — ครบตามแผน มีแค่ปรับ/เพิ่มตามข้างบน
 
-## 3. Workflow หลัก
+## 3. Workflow หลัก (ตรงกับร่างแรก มีจุดต่างเรื่อง delivery)
 
 ```
-1. พนักงานกดสั่งของ (SP/TT/AM) ด้วยเงิน/บัตรตัวเอง (เพื่อเอาส่วนลด)
-        → purchase_order + order_items, status = ordered
+1. พนักงานกดสั่งของ (SP/TT/AM) ด้วยเงิน/บัตรตัวเอง
+        → purchase_order + order_items, status = Ordered
 
-2. จ่ายเงินแล้ว (บัตร/เงินสดพนักงาน)
-        → status = paid_by_staff
+2. จ่ายเงินแล้ว → status = PaidByStaff
+        → staff_ledger_entries: entry_type = AdvancePaid (+)
 
-3. รวมยอดขอเบิกเงินจากบริษัท (แทร็กแยก ไม่ยุ่งกับ process เข้าคลัง)
-        → reimbursement (pending → approved → paid)
-        → purchase_order.status = reimbursed
+3. รวมยอดขอเบิกเงินจากบริษัท (แทร็กแยก)
+        → reimbursement (Pending → Approved → Paid)
+        → purchase_order.status = Reimbursed
+        → staff_ledger_entries: entry_type = Reimbursed (-)
 
-4. ติดตามสถานะพัสดุ (ต่อ order_item เพราะของมาไม่พร้อมกัน) — สแกน QR (เว็บ, ไม่ผูกอุปกรณ์)
-        ├─ Confirm ว่าได้รับของแล้ว → order_item.status = arrived
-        │        → **auto** สร้าง inventory_item (sku, qty, cost/unit) → เข้าคลังทันที ไม่ต้องกดซ้ำ
+4. ติดตามสถานะพัสดุ — พนักงานกรอก tracking_no/courier หลังร้านจัดส่ง
+   → หน้าสแกนรับของ: สแกนบาร์โค้ด/เลข tracking ของร้าน (ไม่ใช่ QR ของระบบ)
+     มี fallback ค้นด้วยเลขออเดอร์เสมอ (สแกนไม่ติดทุกกล่อง)
+        ├─ Confirm ว่าได้รับของแล้ว → order_item.status = Arrived
+        │        → **auto** สร้าง inventory_item (lot ใหม่: product, qty, cost/unit) → เข้าคลังทันที
         │
-        └─ ร้านยกเลิก / ของไม่มา → order_item.status = cancelled
+        └─ ร้านยกเลิก / ของไม่มา → order_item.status = Cancelled
                  → ไม่สร้าง inventory_item, แต่คง record ไว้ (audit)
-                 → ถ้าจ่าย+เบิกไปแล้ว → cancellations ผูกกับ reimbursement เดิม
+                 → ถ้าจ่าย+เบิกไปแล้ว → cancellation ผูกกับ reimbursement เดิม
                      → refund_pending → refunded/adjusted (ฝ่ายการเงิน action)
+                     → staff_ledger_entries: entry_type = RefundDue (-) ตอน flag,
+                       RefundSettled (+) ตอนเคลียร์
 
-5. เบิกของออกจากคลัง (inventory_withdrawal) — เมื่อจะเอาของไปขาย/ใช้งาน
-        → เลือก inventory_item + จำนวน + เหตุผล → บันทึก inventory_withdrawals
-        → qty_on_hand ของ inventory_item ลดลง, ถ้า =0 → status=depleted
-        (การบันทึกยอดขาย/รายได้จริง เป็นคนละระบบ นอกสโคปนี้)
+5. เบิกของออกจากคลัง (inventory_withdrawal)
+        → เลือก inventory_item (lot) + จำนวน + เหตุผล → บันทึก inventory_withdrawals
+        → qty_on_hand ลดลงใน transaction เดียวกัน (concurrency token กันชนกัน), ถ้า =0 → status = Depleted
 
-6. daily_finance_snapshot รันทุกวัน สรุปยอดข้อ 2 ด้านบน
+6. daily_finance_snapshot รันอัตโนมัติทุกวัน 23:59 เวลาไทย
+   (หรือ trigger มือผ่าน POST /api/finance/snapshot/run สำหรับ admin)
 ```
 
-**หลักการสำคัญ:** เบิกเงิน (reimbursement) กับ เข้าคลัง (inventory) เป็นสองแทร็กที่**เดินคู่ขนานกัน** ไม่ block กัน — เบิกเงินได้แม้ของยังไม่มา, ของเข้าคลังได้แม้เบิกเงินยังไม่อนุมัติ เชื่อมกันแค่ผ่าน purchase_order/order_item เพื่อ audit เท่านั้น
+**หลักการสำคัญ (คงเดิม):** เบิกเงิน (reimbursement) กับ เข้าคลัง (inventory) เป็นสองแทร็กที่เดินคู่ขนานกัน ไม่ block กัน — เชื่อมกันแค่ผ่าน purchase_order/order_item เพื่อ audit และผ่าน staff_ledger_entries เพื่อยอดค้างเท่านั้น
 
-## 4. หน้าจอหลัก
+## 4. หน้าจอหลัก (สถานะ implementation)
 
-0. Login — username + password (ไม่มีช่อง email)
-0.1 Master data (admin) — จัดการ users, platforms, withdrawal_reasons
-1. Dashboard — สรุปวันนี้ (ยอดสั่ง/ยอดเบิก/ของค้างมา/มูลค่าที่เข้าคลังวันนี้/เคสถูกยกเลิก)
-2. Order list — filter platform/user/status, ค้นหาเลขออเดอร์
-3. Reimbursement queue — ฝ่ายการเงินอนุมัติ/จ่ายเป็นชุด (แยกอิสระจากหน้าที่ 4-5)
-4. หน้าสแกนรับของ — mobile-first, สแกน QR แล้ว confirm รับของ → auto สร้าง inventory_item ทันที
-5. Inventory list — รายการของในคลัง (sku, qty_on_hand, cost/unit, received_at) พร้อมปุ่ม "เบิกออก"
-6. Withdraw dialog/หน้าเบิกของ — เลือกจำนวน + เหตุผล → บันทึก inventory_withdrawals, ตัด qty_on_hand
-7. Cancellation report — รายการรอ action ฝ่ายการเงิน (ของที่ไม่เข้าคลังแต่จ่าย/เบิกไปแล้ว)
+| # | หน้าจอ | สถานะ |
+|---|---|---|
+| 0 | Login — username + password | ✅ ทำงานจริง ต่อ JWT backend แล้ว |
+| 0.1 | Master data (admin) — users, platforms, withdrawal_reasons | 🔲 placeholder (รอ controller) |
+| 1 | Dashboard — สรุปวันนี้ | 🔲 โครง UI พร้อม รอผูก `/api/finance/snapshot/latest` |
+| 2 | Order list — filter/ค้นหา | 🔲 placeholder (รอ controller) |
+| 3 | Reimbursement queue | 🔲 placeholder (รอ controller) |
+| 4 | หน้าสแกนรับของ — mobile-first | 🔲 placeholder (รอ controller + เลือกไลบรารีสแกนบาร์โค้ด) |
+| 5 | Inventory list + ปุ่มเบิกออก | 🔲 placeholder (รอ controller) — มี mockup อ้างอิงที่ [design/mockup-inventory.html](design/mockup-inventory.html) |
+| 6 | Withdraw dialog | 🔲 รวมอยู่ในหน้า Inventory list |
+| 7 | Cancellation report | 🔲 placeholder (รอ controller) |
 
-## 5. Design System (ทำเสร็จแล้ว)
+App shell (routing, layout, auth, nav) ทำงานจริงและ verify ในเบราว์เซอร์แล้วที่ [Frontend/src](Frontend/src)
 
-ไฟล์ที่ generate ไว้แล้ว (อยู่ที่ root ของ repo นี้ชั่วคราว รอย้ายเข้าโปรเจกต์ใหม่):
-- [tokens.json](tokens.json) — primitive → semantic → component → dark tokens
-- [tokens.css](tokens.css) — CSS variables
-- [style-guide.html](style-guide.html) — ตัวอย่าง component จริง
-- [design-system-spec.md](design-system-spec.md) — เหตุผลการเลือกสี/shape
+## 5. Design System
 
-สรุปการตัดสินใจ: สี anchor = teal (#0B7F74, น่าเชื่อถือ ไม่ชนสี status), status color แยกจาก brand color โดยเจตนา, ปุ่ม/input ขนาดใหญ่กว่าเว็บทั่วไปเพราะใช้สแกนของหน้างานด้วยนิ้ว, รองรับ dark mode สำหรับใช้ในโกดัง/แสงน้อย
+> ย้ายมาจาก `D:\GitSource\EA\` (ถูกสร้างไว้ผิด repo ตอนแรก) แก้แล้วอยู่ที่ [design/](design/)
 
-## 6. Tech Stack (อ้างอิงจากโปรเจกต์ EA)
+- [design/tokens.json](design/tokens.json) — primitive → semantic → component → dark tokens
+- [design/tokens.css](design/tokens.css) — CSS variables (ก็อปมาผูกใน `Frontend/src/theme/tokens.css` ด้วย)
+- [design/style-guide.html](design/style-guide.html) — component จริงพร้อม status badge ครบ 8 สถานะ
+- [design/mockup-inventory.html](design/mockup-inventory.html) — mockup หน้า Inventory list
+- [design/design-system-spec.md](design/design-system-spec.md) — เหตุผลการเลือกสี/shape (รวมประวัติการเปลี่ยนสี)
+
+**สรุปการตัดสินใจ (อัปเดต):**
+- **สี anchor เปลี่ยนจาก teal → gold** (`#C9A227` primary, hover `#A67C24`) ตามที่ผู้ใช้ขอโทนทอง/เหลืองอ่อนแบบพรีเมียม — ตัวหนังสือบนปุ่มเป็นสีเข้มแทนขาว (luxury branding look)
+- **`warning` ขยับจาก amber → orange** (`#C2660F`) เพราะ primary เดิมก็เป็นโทนทอง/เหลืองอยู่แล้ว จะแยกปุ่ม action กับ badge เตือนไม่ออก
+- **teal เดิมไม่ทิ้ง** — ย้ายไปทำหน้าที่สี status `reimbursed` แทน
+- เพิ่ม status token `in-stock` (เขียว) / `depleted` (เทา) ที่ร่างแรกไม่มี (ต้องใช้กับ `inventory_item.status`)
+- ปุ่ม/input ขนาดใหญ่กว่าเว็บทั่วไป (padding-y 12px) เพราะใช้สแกนของหน้างานด้วยนิ้ว, รองรับ dark mode
+
+## 6. Tech Stack (ยืนยันจริงในโค้ดแล้ว)
 
 | ส่วน | เทคโนโลยี | หมายเหตุ |
 |---|---|---|
-| Backend | ASP.NET Core 8 Web API | ตาม `Backend/EaConsole.Api` |
-| ORM | Pomelo.EntityFrameworkCore.MySql | MySQL provider |
-| Database | MySQL | host บน Plesk |
-| Frontend | React 18 + Vite + TypeScript + MUI | ตาม `Frontend/` |
-| Deploy | Single-host: React build เข้า `wwwroot` ของ API, upload ผ่าน FTP ไป Plesk | ใช้แนวทางเดียวกับ `deploy-single-host.core.ps1` |
-| Hosting | Plesk (`ns37.1baht.net:8443`) | เหมือนโดเมน ea.thaipesleague.com |
+| Backend | ASP.NET Core **8** (net8.0 **pinned** ผ่าน [global.json](global.json)) | เครื่องมี SDK 10.0.401 ด้วย ต้อง pin ไม่งั้น `dotnet new` จะได้ net10 เงียบๆ ซึ่งอาจ deploy ไม่ขึ้น Plesk ที่รองรับแค่ 8 |
+| ORM | Pomelo.EntityFrameworkCore.MySql 8.0.2 | ตรงกับเวอร์ชันที่ EA deploy ได้จริงบน Plesk |
+| Auth | JWT (Microsoft.AspNetCore.Authentication.JwtBearer) + BCrypt.Net-Next | **เขียนใหม่ทั้งชุด** — EA ไม่มี auth เลยให้ลอก |
+| Database | MySQL 8.0 | dev: container local; prod: Plesk |
+| Frontend | React 18 + Vite + TypeScript + MUI 9 | ผูก design tokens เข้า MUI theme แล้ว |
+| Scheduled job | `BackgroundService` ในตัว (ไม่ใช้ Hangfire) | งานเดียว (daily snapshot) ไม่คุ้มที่จะเพิ่ม dependency + ตารางของตัวเอง |
+| Deploy | Single-host: React build เข้า `wwwroot` ของ API, FTP ไป Plesk | ปรับจาก `deploy-single-host.core.ps1` ของ EA — **ยังไม่เคยรันจริง** (ไม่มี FTP/DB จริงให้ทดสอบ) |
+| Hosting | Plesk (`ns37.1baht.net:8443`) — เดาว่าเหมือนโดเมน ea.thaipesleague.com | **win-x86 publish RID ที่ลอกจาก EA ยังไม่ยืนยันว่าตรงกับ P2S host** |
 
-## 7. โครงสร้างโปรเจกต์ใหม่ (แผน)
+## 7. โครงสร้างโปรเจกต์ (ของจริง)
 
 ```
-P2SInventory/
+P2S/                                    ← D:\GitSource\P2S (ไม่ใช่ P2SInventory)
 ├── Backend/
-│   └── P2SInventory.Api/
-│       ├── Controllers/       (OrdersController, ReimbursementsController, DeliveriesController, InventoryController, ...)
-│       ├── Data/Entities/     (PurchaseOrder, OrderItem, Reimbursement, Delivery, InventoryItem, InventoryWithdrawal, Cancellation, ...)
-│       ├── Dtos/
-│       ├── Services/
-│       └── wwwroot/           ← React build ถูก copy มาที่นี่ตอน deploy
+│   ├── P2S.Api/
+│   │   ├── Controllers/       AuthController, FinanceController
+│   │   ├── Data/
+│   │   │   ├── Entities/      14 entities ครบตามข้อ 2
+│   │   │   ├── Migrations/    InitialCreate (seed: admin/platforms/withdrawal_reasons)
+│   │   │   ├── P2SDbContext.cs
+│   │   │   ├── P2SDbContextFactory.cs   (design-time factory — EF CLI ไม่ต้องต่อ DB จริงตอน gen migration)
+│   │   │   └── SeedData.cs
+│   │   ├── Dtos/
+│   │   ├── Services/           JwtTokenService, DailyFinanceSnapshot(Background)Service, BangkokClock
+│   │   ├── Program.cs
+│   │   └── wwwroot/            ← React build ถูก copy มาที่นี่ตอน deploy (git-ignored)
+│   └── P2S.Api.Tests/          xUnit, 8 tests ผ่านจริง (รวม timezone edge case)
 ├── Frontend/
 │   └── src/
-│       ├── components/
-│       ├── hooks/
-│       ├── types/
-│       └── utils/
-├── deploy-single-host.core.ps1   (ปรับจาก EA)
+│       ├── api/                axios client + JWT interceptor, dev proxy → :5080
+│       ├── auth/                AuthContext, ProtectedRoute
+│       ├── components/          PageHeader, StatusBadge
+│       ├── layout/               AppLayout (responsive nav)
+│       ├── pages/                 LoginPage, DashboardPage, PlaceholderPage x6
+│       ├── theme/                 theme.ts (MUI ผูก tokens), tokens.ts, tokens.css
+│       └── types/                  models.ts (mirror backend entities)
+├── design/                      design system (ย้ายมาจาก EA แล้วแก้)
+├── global.json                  pin .NET SDK 8.0.206
+├── P2S.sln
+├── deploy-single-host.core.ps1  (ปรับจาก EA — ยังไม่เคยรันจริง)
 ├── deploy-single-host.example.ps1
 ├── DEPLOYMENT-SINGLE-HOST.md
-└── docs/
+└── upload-ftp.ps1               (ก็อปจาก EA ตรงๆ — generic ไม่มีจุดต้องแก้)
 ```
 
-## 8. ขั้นตอนถัดไป (ยังไม่ได้ทำ)
+## 8. ขั้นตอนถัดไป
 
-- [x] ยืนยันชื่อโปรเจกต์: **P2SInventory** → `D:\GitSource\P2SInventory`
-- [ ] Scaffold `dotnet new webapi` + เพิ่ม Pomelo EF Core MySQL, Swashbuckle
-- [ ] ทำ Auth: username/password login (JWT), ไม่มี email field เป็น identifier
-- [ ] เขียน EF Core entities + DbContext ตาม data model ข้อ 2 (รวม master data: users/roles/platforms/withdrawal_reasons, `InventoryItem`, `InventoryWithdrawal`, แยก reimbursement ออกจาก inventory flow ชัดเจนในระดับ service/controller ด้วย)
-- [ ] เขียน migration แรก + ทดสอบต่อ MySQL บน Plesk
-- [ ] Scaffold `Frontend` ด้วย Vite + React + TS + MUI, ผูก tokens.css ที่ทำไว้แล้ว
-- [ ] ทำหน้าสแกนรับของ (ต้องเลือกไลบรารีสแกน QR ฝั่งเว็บ เช่น `html5-qrcode`)
-- [ ] ทำ scheduled job สำหรับ daily_finance_snapshot (Hangfire หรือ BackgroundService)
-- [ ] ปรับ deploy script จาก EA ให้ใช้กับโปรเจกต์ใหม่ (FTP path, connection string, CORS origin)
-- [ ] ตั้งค่า `/health` endpoint ตาม pattern เดียวกับ EA
+- [x] ยืนยันชื่อโปรเจกต์และ repo: ใช้ `D:\GitSource\P2S` ที่มีอยู่แล้ว (ไม่สร้าง `P2SInventory` ใหม่)
+- [x] Design system: ย้ายจาก EA + เติม token ที่ขาด + เปลี่ยนโทนเป็น gold ตามที่ขอ
+- [x] Scaffold `dotnet new webapi` (net8.0 pinned) + Pomelo EF Core MySQL + Swashbuckle
+- [x] Auth: username/password login (JWT) + BCrypt + admin reset password endpoint
+- [x] EF Core entities + DbContext ครบ 14 ตาราง (รวม products, staff_ledger_entries, concurrency token)
+- [x] Migration แรก + **ทดสอบจริงกับ MySQL** (container local) — apply สำเร็จ, seed ถูกต้อง, login/authorize ทำงานจริง
+- [x] Scaffold `Frontend` ด้วย Vite + React + TS + MUI, ผูก tokens.css แล้ว, **verify end-to-end ในเบราว์เซอร์จริง** (login/logout/nav/route protection)
+- [x] Scheduled job `daily_finance_snapshot` ผ่าน `BackgroundService` — **verify จริงกับ MySQL**, เจอและแก้บั๊ก decimal precision ระหว่างทดสอบ
+- [x] ปรับ deploy script จาก EA (FTP path, connection string, CORS origin ผ่าน env var, JWT signing key) — **ยังไม่เคยรันจริง**
+- [x] `/health` endpoint ตาม pattern เดียวกับ EA
+- [ ] ทำหน้าสแกนรับของจริง (เลือกไลบรารีสแกนบาร์โค้ด 1D เช่น `html5-qrcode`/ZXing, ต้องมี HTTPS สำหรับกล้อง, มี fallback กรอกเลขมือ/ค้นเลขออเดอร์เสมอ)
+- [ ] เขียน business controllers: Orders, Reimbursements, Deliveries, Inventory, Cancellations, Master data (users/platforms/withdrawal_reasons/products)
+- [ ] ผูก 6 หน้าจอ placeholder เข้ากับ controllers จริงด้านบน
+- [ ] รัน deploy script จริงครั้งแรก — ต้องยืนยัน win-x86 RID กับ Plesk host ก่อน, ต้องมี FTP credentials + connection string จริง + JWT signing key production (ห้ามใช้ค่า dev ซ้ำ)
+- [ ] ตั้งค่า auto-merge/CI ถ้าต้องการ (ยังไม่ได้ตั้ง)
