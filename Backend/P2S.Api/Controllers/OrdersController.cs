@@ -63,6 +63,7 @@ public class OrdersController : ControllerBase
         [FromQuery] int? userId,
         [FromQuery] string? status,
         [FromQuery] string? search,
+        [FromQuery] bool excludeRequested,
         CancellationToken ct)
     {
         var query = _db.PurchaseOrders
@@ -80,6 +81,19 @@ public class OrdersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(o => o.PlatformOrderNo.Contains(search));
+        }
+
+        // Used by the reimbursement-request picker: a PaidByStaff order stays PaidByStaff
+        // until its reimbursement is actually Paid (not merely requested), so without this it
+        // would keep showing as selectable even while a Pending/Approved request already
+        // covers it — see ReimbursementService.CreateAsync for the matching server-side guard.
+        if (excludeRequested)
+        {
+            var requestedOrderIds = await _db.Reimbursements
+                .Where(r => r.Status != ReimbursementStatus.Paid)
+                .SelectMany(r => r.PurchaseOrders.Select(po => po.Id))
+                .ToListAsync(ct);
+            query = query.Where(o => !requestedOrderIds.Contains(o.Id));
         }
 
         var orders = await query.OrderByDescending(o => o.OrderedAt).ToListAsync(ct);

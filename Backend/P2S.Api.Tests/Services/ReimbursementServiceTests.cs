@@ -61,6 +61,26 @@ public class ReimbursementServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_RejectsOrderAlreadyInAnUnpaidReimbursement()
+    {
+        // order.Status stays PaidByStaff until a reimbursement is actually Paid, so a second
+        // CreateAsync call for the same order must be rejected while the first request is
+        // still Pending/Approved — otherwise the same order could be double-reimbursed.
+        await using var db = CreateContext();
+        var (user, product) = await SeedBaseAsync(db);
+
+        var order = new PurchaseOrder { PlatformId = 1, OrderedByUserId = user.Id, PlatformOrderNo = "O5", TotalAmount = 90m, Status = PurchaseOrderStatus.PaidByStaff };
+        order.OrderItems.Add(new OrderItem { ProductId = product.Id, Qty = 1, UnitPrice = 90m, Status = OrderItemStatus.Arrived });
+        db.PurchaseOrders.Add(order);
+        await db.SaveChangesAsync();
+
+        var service = new ReimbursementService(db);
+        await service.CreateAsync(user.Id, [order.Id], CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(user.Id, [order.Id], CancellationToken.None));
+    }
+
+    [Fact]
     public async Task PayAsync_FlipsOrdersToReimbursed_AndRecordsNegativeLedgerEntry()
     {
         await using var db = CreateContext();

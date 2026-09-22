@@ -1,7 +1,7 @@
-# แผนงาน: P2S Inventory — ระบบจัดหาสินค้า–เบิกจ่าย–เข้าคลัง (Procure-to-Stock)
+# แผนงาน: Arbify — ระบบจัดหาสินค้า–เบิกจ่าย–เข้าคลัง (Procure-to-Stock)
 
 > เอกสารนี้สรุปสิ่งที่คุยกันไว้ทั้งหมด **อัปเดตให้ตรงกับของจริงในโค้ดแล้ว** (rev. 2026-09-22 หลัง Phase 0-3 เสร็จ)
-> ชื่อโปรเจกต์: **P2S Inventory** (Procure-to-Stock / Pay-to-Stock), โฟลเดอร์/repo: **`D:\GitSource\P2S`** (ไม่ใช่ `P2SInventory` ตามที่ร่างไว้ตอนแรก — ใช้ repo ที่มีอยู่แล้วแทน)
+> ชื่อโปรเจกต์: **Arbify** (P2S Inventory — Procure-to-Stock / Pay-to-Stock), โฟลเดอร์/repo: **`D:\GitSource\P2S`** (ไม่ใช่ `P2SInventory` ตามที่ร่างไว้ตอนแรก — ใช้ repo ที่มีอยู่แล้วแทน)
 
 ## 1. Requirement เดิม (สรุปจากผู้ใช้)
 

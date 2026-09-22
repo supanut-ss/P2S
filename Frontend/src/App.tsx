@@ -6,7 +6,12 @@ import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AppLayout } from './layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { PlaceholderPage } from './pages/PlaceholderPage';
+import { OrdersPage } from './pages/OrdersPage';
+import { ReimbursementsPage } from './pages/ReimbursementsPage';
+import { ScanPage } from './pages/ScanPage';
+import { InventoryPage } from './pages/InventoryPage';
+import { CancellationsPage } from './pages/CancellationsPage';
+import { AdminPage } from './pages/AdminPage';
 
 export default function App() {
   return (
@@ -24,30 +29,12 @@ export default function App() {
               }
             >
               <Route path="/" element={<DashboardPage />} />
-              <Route
-                path="/orders"
-                element={<PlaceholderPage title="Order list" subtitle="filter platform/user/status, ค้นหาเลขออเดอร์" />}
-              />
-              <Route
-                path="/reimbursements"
-                element={<PlaceholderPage title="Reimbursement queue" subtitle="ฝ่ายการเงินอนุมัติ/จ่ายเป็นชุด" />}
-              />
-              <Route
-                path="/scan"
-                element={<PlaceholderPage title="สแกนรับของ" subtitle="สแกนบาร์โค้ด/tracking แล้ว confirm รับของ" />}
-              />
-              <Route
-                path="/inventory"
-                element={<PlaceholderPage title="Inventory list" subtitle="รายการของในคลัง พร้อมปุ่มเบิกออก" />}
-              />
-              <Route
-                path="/cancellations"
-                element={<PlaceholderPage title="Cancellation report" subtitle="รายการรอ action ฝ่ายการเงิน" />}
-              />
-              <Route
-                path="/admin"
-                element={<PlaceholderPage title="Master data" subtitle="จัดการ users, platforms, withdrawal reasons" />}
-              />
+              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/reimbursements" element={<ReimbursementsPage />} />
+              <Route path="/scan" element={<ScanPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/cancellations" element={<CancellationsPage />} />
+              <Route path="/admin" element={<AdminPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

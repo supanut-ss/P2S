@@ -37,6 +37,22 @@ public class ReimbursementService : IReimbursementService
                 $"ออเดอร์ #{string.Join(", ", notPaidByStaff.Select(o => o.PlatformOrderNo))} ยังไม่ได้ mark-paid หรือถูกเบิกไปแล้ว");
         }
 
+        // order.Status only flips to Reimbursed once a reimbursement is actually Paid, not
+        // when it's merely requested — so without this check, the same PaidByStaff order
+        // could be selected into a second, overlapping reimbursement while the first one is
+        // still sitting Pending/Approved.
+        var orderIds = orders.Select(o => o.Id).ToList();
+        var alreadyRequested = await _db.Reimbursements
+            .Where(r => r.Status != ReimbursementStatus.Paid && r.PurchaseOrders.Any(po => orderIds.Contains(po.Id)))
+            .SelectMany(r => r.PurchaseOrders.Where(po => orderIds.Contains(po.Id)))
+            .Select(po => po.PlatformOrderNo)
+            .ToListAsync(ct);
+        if (alreadyRequested.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"ออเดอร์ #{string.Join(", ", alreadyRequested.Distinct())} มีคำขอเบิกเงินที่ยังไม่จ่ายอยู่แล้ว");
+        }
+
         var totalAmount = orders.Sum(o => o.OrderItems
             .Where(i => i.Status != OrderItemStatus.Cancelled)
             .Sum(i => i.Qty * i.UnitPrice));

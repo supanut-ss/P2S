@@ -1,4 +1,4 @@
-# P2S Inventory — repo notes for Claude Code
+# Arbify (P2S Inventory) — repo notes for Claude Code
 
 Full requirement/data-model/workflow context lives in [PROJECT-PLAN.md](PROJECT-PLAN.md) — read that first. This file is operational notes for working in the repo, not a design doc.
 

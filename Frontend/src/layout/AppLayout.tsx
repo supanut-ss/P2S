@@ -108,7 +108,7 @@ export function AppLayout() {
             }}
           />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700, fontSize: '1.125rem' }}>
-            P2S Inventory
+            Arbify
           </Typography>
           <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
             <Avatar sx={{ width: 32, height: 32, bgcolor: tokens.color.primary, color: tokens.color.primaryForeground, fontSize: '0.875rem' }}>

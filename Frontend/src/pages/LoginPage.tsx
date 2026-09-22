@@ -49,7 +49,7 @@ export function LoginPage() {
             }}
           />
           <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-            P2S Inventory
+            Arbify
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             เข้าสู่ระบบด้วย username และ password

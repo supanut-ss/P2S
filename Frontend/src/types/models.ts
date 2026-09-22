@@ -1,43 +1,13 @@
-// Mirrors Backend/P2S.Api/Data/Entities and Dtos — keep in sync by hand until an
-// OpenAPI-generated client replaces this (tracked as a later improvement, not blocking).
+// Mirrors the flat response DTOs in Backend/P2S.Api/Dtos exactly (field-for-field) —
+// intentionally not a mirror of the EF entities, since the API never returns those directly.
 
 export type PurchaseOrderStatus = 'Ordered' | 'PaidByStaff' | 'Reimbursed';
 export type OrderItemStatus = 'Pending' | 'Arrived' | 'Cancelled';
 export type ReimbursementStatus = 'Pending' | 'Approved' | 'Paid';
 export type InventoryItemStatus = 'InStock' | 'Depleted';
 export type CancellationStatus = 'RefundPending' | 'Refunded' | 'Adjusted';
-export type StaffLedgerEntryType = 'AdvancePaid' | 'Reimbursed' | 'RefundDue' | 'RefundSettled' | 'Adjustment';
-export type DeliveryMatchMethod = 'Barcode' | 'ManualTrackingEntry' | 'OrderNumberSearch';
 
-export interface Role {
-  id: number;
-  name: string;
-}
-
-export interface User {
-  id: number;
-  username: string;
-  fullName: string;
-  roleId: number;
-  role: Role;
-  isActive: boolean;
-  cardLast4: string | null;
-}
-
-export interface Platform {
-  id: number;
-  code: string;
-  name: string;
-  isActive: boolean;
-}
-
-export interface WithdrawalReason {
-  id: number;
-  name: string;
-  isActive: boolean;
-}
-
-export interface Product {
+export interface ProductResponse {
   id: number;
   name: string;
   skuCode: string;
@@ -45,22 +15,32 @@ export interface Product {
   isActive: boolean;
 }
 
-export interface PurchaseOrder {
+export interface PlatformResponse {
   id: number;
-  platformId: number;
-  platform: Platform;
-  orderedByUserId: number;
-  platformOrderNo: string;
-  totalAmount: number;
-  status: PurchaseOrderStatus;
-  orderedAt: string;
+  code: string;
+  name: string;
+  isActive: boolean;
 }
 
-export interface OrderItem {
+export interface WithdrawalReasonResponse {
   id: number;
-  purchaseOrderId: number;
+  name: string;
+  isActive: boolean;
+}
+
+export interface UserResponse {
+  id: number;
+  username: string;
+  fullName: string;
+  role: string;
+  isActive: boolean;
+  cardLast4: string | null;
+}
+
+export interface OrderItemResponse {
+  id: number;
   productId: number;
-  product: Product;
+  productName: string;
   qty: number;
   unitPrice: number;
   status: OrderItemStatus;
@@ -70,42 +50,58 @@ export interface OrderItem {
   cancelledAt: string | null;
 }
 
-export interface InventoryItem {
+export interface PurchaseOrderResponse {
+  id: number;
+  platformCode: string;
+  platformOrderNo: string;
+  totalAmount: number;
+  status: PurchaseOrderStatus;
+  orderedAt: string;
+  orderedByUserId: number;
+  orderedByUsername: string;
+  items: OrderItemResponse[];
+}
+
+export interface PendingOrderItemResponse {
+  orderItemId: number;
+  purchaseOrderId: number;
+  platformCode: string;
+  platformOrderNo: string;
+  productName: string;
+  qty: number;
+  unitPrice: number;
+  trackingNo: string | null;
+  courier: string | null;
+}
+
+export interface InventoryItemResponse {
   id: number;
   productId: number;
-  product: Product;
-  orderItemId: number;
+  productName: string;
+  skuCode: string;
   qtyReceived: number;
   qtyOnHand: number;
   costPerUnit: number;
   status: InventoryItemStatus;
   receivedAt: string;
-  rowVersion: number;
 }
 
-export interface InventoryWithdrawal {
-  id: number;
-  inventoryItemId: number;
-  qty: number;
-  withdrawalReasonId: number;
-  withdrawnByUserId: number;
-  withdrawnAt: string;
-  note: string | null;
-}
-
-export interface Reimbursement {
+export interface ReimbursementResponse {
   id: number;
   requestedByUserId: number;
+  requestedByUsername: string;
   status: ReimbursementStatus;
   totalAmount: number;
   requestedAt: string;
   approvedAt: string | null;
   paidAt: string | null;
+  purchaseOrderIds: number[];
 }
 
-export interface Cancellation {
+export interface CancellationResponse {
   id: number;
   orderItemId: number;
+  productName: string;
   reimbursementId: number | null;
   status: CancellationStatus;
   flaggedAt: string;
@@ -113,11 +109,10 @@ export interface Cancellation {
   note: string | null;
 }
 
-export interface StaffLedgerEntry {
-  id: number;
-  userId: number;
-  entryType: StaffLedgerEntryType;
-  amount: number;
-  createdAt: string;
-  note: string | null;
+export interface DailyFinanceSnapshotResponse {
+  snapshotDate: string;
+  totalOrderedAmount: number;
+  totalReimbursementPending: number;
+  totalInventoryValueToday: number;
+  openCancellationsCount: number;
 }
