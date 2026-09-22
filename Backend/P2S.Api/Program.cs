@@ -24,6 +24,8 @@ builder.Services.AddDbContext<P2SDbContext>(options =>
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<IDailyFinanceSnapshotService, DailyFinanceSnapshotService>();
+builder.Services.AddHostedService<DailyFinanceSnapshotBackgroundService>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("Missing Jwt configuration section.");
