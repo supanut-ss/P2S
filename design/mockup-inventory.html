@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Mockup — Inventory List</title>
+<style>
+/* === tokens.css (inlined for standalone preview) === */
+:root {
+  --primitive-color-gray-50: #F8FAFA;
+  --primitive-color-gray-100: #EEF2F2;
+  --primitive-color-gray-200: #DFE6E6;
+  --primitive-color-gray-300: #C3CFCF;
+  --primitive-color-gray-400: #93A5A5;
+  --primitive-color-gray-500: #647878;
+  --primitive-color-gray-600: #475858;
+  --primitive-color-gray-700: #354242;
+  --primitive-color-gray-800: #232E2E;
+  --primitive-color-gray-900: #141C1C;
+  --primitive-color-gray-950: #0A0F0F;
+  --primitive-color-teal-50: #EEFBF9;
+  --primitive-color-teal-100: #D2F4EF;
+  --primitive-color-teal-200: #A6E9E0;
+  --primitive-color-teal-500: #0F9C8E;
+  --primitive-color-teal-600: #0B7F74;
+  --primitive-color-teal-700: #086259;
+  --primitive-color-teal-800: #064A44;
+  --primitive-color-amber-50: #FFF8EB;
+  --primitive-color-amber-500: #E8A620;
+  --primitive-color-amber-600: #C2860F;
+  --primitive-color-green-50: #EEFAF2;
+  --primitive-color-green-500: #26A65B;
+  --primitive-color-green-600: #1D8548;
+  --primitive-color-red-50: #FDEFEF;
+  --primitive-color-red-500: #E0453F;
+  --primitive-color-red-600: #C1332D;
+  --primitive-color-blue-50: #EEF5FD;
+  --primitive-color-blue-500: #2E7FD1;
+  --primitive-color-blue-600: #2266AD;
+  --primitive-color-white: #FFFFFF;
+  --primitive-spacing-0: 0;
+  --primitive-spacing-1: 0.25rem;
+  --primitive-spacing-2: 0.5rem;
+  --primitive-spacing-3: 0.75rem;
+  --primitive-spacing-4: 1rem;
+  --primitive-spacing-5: 1.25rem;
+  --primitive-spacing-6: 1.5rem;
+  --primitive-spacing-8: 2rem;
+  --primitive-spacing-10: 2.5rem;
+  --primitive-spacing-12: 3rem;
+  --primitive-spacing-16: 4rem;
+  --primitive-fontSize-xs: 0.75rem;
+  --primitive-fontSize-sm: 0.875rem;
+  --primitive-fontSize-base: 1rem;
+  --primitive-fontSize-lg: 1.125rem;
+  --primitive-fontSize-xl: 1.25rem;
+  --primitive-fontSize-2xl: 1.5rem;
+  --primitive-fontSize-3xl: 1.875rem;
+  --primitive-fontSize-4xl: 2.25rem;
+  --primitive-radius-none: 0;
+  --primitive-radius-sm: 0.25rem;
+  --primitive-radius-default: 0.375rem;
+  --primitive-radius-md: 0.5rem;
+  --primitive-radius-lg: 0.75rem;
+  --primitive-radius-xl: 1rem;
+  --primitive-radius-full: 9999px;
+  --primitive-shadow-sm: 0 1px 2px 0 rgb(20 28 28 / 0.06);
+  --primitive-shadow-default: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --color-background: #F8FAFA;
+  --color-foreground: #141C1C;
+  --color-primary: #C9A227;
+  --color-primary-hover: #A67C24;
+  --color-primary-foreground: #141C1C;
+  --color-secondary: #EEF2F2;
+  --color-secondary-foreground: #141C1C;
+  --color-muted: #EEF2F2;
+  --color-muted-foreground: #647878;
+  --color-border: #DFE6E6;
+  --color-ring: #A67C24;
+  --color-success: #1D8548;
+  --color-success-bg: #EEFAF2;
+  --color-warning: #C2660F;
+  --color-warning-bg: #FFF3EA;
+  --color-destructive: #C1332D;
+  --color-destructive-foreground: #FFFFFF;
+  --color-destructive-bg: #FDEFEF;
+  --color-info: #2266AD;
+  --color-info-bg: #EEF5FD;
+  --spacing-component: 1rem;
+  --spacing-section: 2rem;
+  --status-ordered: #2266AD;
+  --status-paid-by-staff: #C2660F;
+  --status-reimbursed: #0B7F74;
+  --status-delivered: #1D8548;
+  --status-cancelled: #C1332D;
+  --status-refund-pending: #C2660F;
+  --status-in-stock: #1D8548;
+  --status-depleted: #647878;
+  --button-bg: #C9A227;
+  --button-fg: #141C1C;
+  --button-hover-bg: #A67C24;
+  --button-padding-x: 1rem;
+  --button-padding-y: 0.75rem;
+  --button-radius: 0.5rem;
+  --button-font-size: 0.875rem;
+  --input-bg: #F8FAFA;
+  --input-border: #DFE6E6;
+  --input-focus-ring: #A67C24;
+  --input-padding-x: 0.75rem;
+  --input-padding-y: 0.75rem;
+  --input-radius: 0.5rem;
+  --card-bg: #FFFFFF;
+  --card-border: #DFE6E6;
+  --card-shadow: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --card-padding: 1rem;
+  --card-radius: 0.75rem;
+  --badge-padding-x: 0.5rem;
+  --badge-padding-y: 0.25rem;
+  --badge-radius: 9999px;
+  --badge-font-size: 0.75rem;
+}
+.dark {
+  --color-background: #0A0F0F;
+  --color-foreground: #F8FAFA;
+  --color-secondary: #232E2E;
+  --color-muted: #232E2E;
+  --color-muted-foreground: #93A5A5;
+  --color-border: #232E2E;
+  --status-depleted: #93A5A5;
+}
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--spacing-component) var(--spacing-section);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar h1 { font-size: var(--primitive-fontSize-lg); margin: 0; }
+  .topbar .brand { display: flex; align-items: center; gap: var(--primitive-spacing-3); }
+  .topbar .logo-dot {
+    width: 28px; height: 28px; border-radius: var(--primitive-radius-md);
+    background: var(--color-primary);
+  }
+  .topbar .user { font-size: var(--primitive-fontSize-sm); color: var(--color-muted-foreground); }
+
+  main { padding: var(--spacing-section); max-width: 1100px; margin: 0 auto; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--spacing-section); flex-wrap: wrap; gap: var(--primitive-spacing-3); }
+  .page-header h2 { font-size: var(--primitive-fontSize-2xl); margin: 0 0 4px; }
+  .page-header p { margin: 0; color: var(--color-muted-foreground); font-size: var(--primitive-fontSize-sm); }
+
+  .search-row { display: flex; gap: var(--primitive-spacing-3); margin-bottom: var(--spacing-component); flex-wrap: wrap; }
+  .search-input {
+    flex: 1; min-width: 220px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--input-radius);
+    padding: var(--input-padding-y) var(--input-padding-x);
+    font-size: var(--primitive-fontSize-sm);
+  }
+  .search-input:focus { outline: 2px solid var(--input-focus-ring); outline-offset: 1px; }
+  select.search-input { max-width: 180px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--button-bg);
+    color: var(--button-fg);
+    border: none;
+    padding: var(--button-padding-y) var(--button-padding-x);
+    border-radius: var(--button-radius);
+    font-size: var(--button-font-size);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn:hover { background: var(--button-hover-bg); }
+  .btn.secondary {
+    background: var(--color-secondary);
+    color: var(--color-secondary-foreground);
+  }
+  .btn.secondary:hover { background: var(--color-muted); }
+
+  /* Summary stat row */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--primitive-spacing-4); margin-bottom: var(--spacing-section); }
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: var(--card-padding);
+  }
+  .stat-card .label { font-size: var(--primitive-fontSize-xs); color: var(--color-muted-foreground); text-transform: uppercase; letter-spacing: .04em; }
+  .stat-card .value { font-size: var(--primitive-fontSize-2xl); font-weight: 700; margin-top: 4px; }
+  .stat-card .value.success { color: var(--color-success); }
+  .stat-card .value.warning { color: var(--color-warning); }
+
+  /* Inventory cards */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--primitive-spacing-4); }
+  .item-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    padding: var(--card-padding);
+    position: relative;
+    border-left: 4px solid var(--status-in-stock);
+  }
+  .item-card.depleted { border-left-color: var(--status-depleted); opacity: .75; }
+
+  .item-card .row-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--primitive-spacing-2); }
+  .item-card h3 { margin: 0; font-size: var(--primitive-fontSize-base); }
+  .item-card .sku { font-size: var(--primitive-fontSize-xs); color: var(--color-muted-foreground); }
+
+  .badge {
+    display: inline-block;
+    padding: var(--badge-padding-y) var(--badge-padding-x);
+    border-radius: var(--badge-radius);
+    font-size: var(--badge-font-size);
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .item-card .meta { display: flex; justify-content: space-between; font-size: var(--primitive-fontSize-sm); margin: var(--primitive-spacing-2) 0; color: var(--color-muted-foreground); }
+  .item-card .meta strong { color: var(--color-foreground); font-weight: 600; }
+
+  .item-card .qty-bar {
+    height: 6px; border-radius: var(--primitive-radius-full);
+    background: var(--color-muted);
+    overflow: hidden; margin: var(--primitive-spacing-2) 0 var(--primitive-spacing-3);
+  }
+  .item-card .qty-bar span { display: block; height: 100%; background: var(--status-in-stock); }
+  .item-card.depleted .qty-bar span { background: var(--status-depleted); }
+
+  .item-card .actions { display: flex; gap: var(--primitive-spacing-2); }
+  .item-card .actions .btn { flex: 1; justify-content: center; padding-top: var(--primitive-spacing-2); padding-bottom: var(--primitive-spacing-2); font-size: var(--primitive-fontSize-xs); }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <h1>P2S Inventory</h1>
+    </div>
+    <div class="user">สมชาย ใจดี · staff</div>
+  </div>
+
+  <main>
+    <div class="page-header">
+      <div>
+        <h2>Inventory list</h2>
+        <p>ของในคลังทั้งหมด — เรียงตามสินค้า พร้อม lot ที่รับเข้ามา</p>
+      </div>
+      <button class="btn">+ เบิกของออก</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="label">รายการทั้งหมด</div>
+        <div class="value">128</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">คงคลัง (in stock)</div>
+        <div class="value success">104</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">หมดแล้ว (depleted)</div>
+        <div class="value">24</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">มูลค่าเข้าคลังวันนี้</div>
+        <div class="value warning">฿12,450</div>
+      </div>
+    </div>
+
+    <div class="search-row">
+      <input class="search-input" placeholder="ค้นหา SKU / ชื่อสินค้า...">
+      <select class="search-input">
+        <option>ทุกสถานะ</option>
+        <option>In stock</option>
+        <option>Depleted</option>
+      </select>
+      <select class="search-input">
+        <option>ทุกแพลตฟอร์ม</option>
+        <option>Shopee</option>
+        <option>TikTok Shop</option>
+        <option>Amazon/Lazada</option>
+      </select>
+    </div>
+
+    <div class="grid">
+      <div class="item-card">
+        <div class="row-top">
+          <div>
+            <h3>เคสมือถือใส กันกระแทก</h3>
+            <div class="sku">SKU-00231 · lot #A104</div>
+          </div>
+          <span class="badge" style="background:var(--status-in-stock)">In stock</span>
+        </div>
+        <div class="meta"><span>ต้นทุน/ชิ้น</span><strong>฿89.00</strong></div>
+        <div class="meta"><span>คงเหลือ</span><strong>42 / 50</strong></div>
+        <div class="qty-bar"><span style="width:84%"></span></div>
+        <div class="actions">
+          <button class="btn secondary">ดูรายละเอียด</button>
+          <button class="btn">เบิกออก</button>
+        </div>
+      </div>
+
+      <div class="item-card">
+        <div class="row-top">
+          <div>
+            <h3>สายชาร์จ USB-C 1m</h3>
+            <div class="sku">SKU-00187 · lot #A098</div>
+          </div>
+          <span class="badge" style="background:var(--status-in-stock)">In stock</span>
+        </div>
+        <div class="meta"><span>ต้นทุน/ชิ้น</span><strong>฿55.00</strong></div>
+        <div class="meta"><span>คงเหลือ</span><strong>8 / 100</strong></div>
+        <div class="qty-bar"><span style="width:8%"></span></div>
+        <div class="actions">
+          <button class="btn secondary">ดูรายละเอียด</button>
+          <button class="btn">เบิกออก</button>
+        </div>
+      </div>
+
+      <div class="item-card depleted">
+        <div class="row-top">
+          <div>
+            <h3>ฟิล์มกระจกกันรอย 9D</h3>
+            <div class="sku">SKU-00145 · lot #A076</div>
+          </div>
+          <span class="badge" style="background:var(--status-depleted)">Depleted</span>
+        </div>
+        <div class="meta"><span>ต้นทุน/ชิ้น</span><strong>฿32.00</strong></div>
+        <div class="meta"><span>คงเหลือ</span><strong>0 / 60</strong></div>
+        <div class="qty-bar"><span style="width:0%"></span></div>
+        <div class="actions">
+          <button class="btn secondary" disabled style="opacity:.5;cursor:not-allowed">ดูรายละเอียด</button>
+          <button class="btn" disabled style="opacity:.5;cursor:not-allowed">เบิกออก</button>
+        </div>
+      </div>
+
+      <div class="item-card">
+        <div class="row-top">
+          <div>
+            <h3>ลำโพงบลูทูธพกพา</h3>
+            <div class="sku">SKU-00302 · lot #A112</div>
+          </div>
+          <span class="badge" style="background:var(--status-in-stock)">In stock</span>
+        </div>
+        <div class="meta"><span>ต้นทุน/ชิ้น</span><strong>฿410.00</strong></div>
+        <div class="meta"><span>คงเหลือ</span><strong>15 / 20</strong></div>
+        <div class="qty-bar"><span style="width:75%"></span></div>
+        <div class="actions">
+          <button class="btn secondary">ดูรายละเอียด</button>
+          <button class="btn">เบิกออก</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

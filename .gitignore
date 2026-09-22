@@ -1,0 +1,56 @@
+# ---------- Node / React (Frontend) ----------
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+*.local
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Env / secrets ----------
+.env
+.env.*.local
+.env.local
+
+# ---------- .NET / C# (Backend) ----------
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.pubxml
+*.pubxml.user
+publish/
+Backend/P2S.Api/wwwroot/
+
+# ---------- Deploy staging (deploy.ps1 output - contains a self-contained
+# publish + a web.config patched with real runtime secrets, never commit) ----------
+/deploy/
+/.deploy/
+/.deploy-cache/
+
+# ---------- Local single-host deploy wrapper - copied from
+# deploy-single-host.example.ps1 and allowed to reference machine secrets.
+# Shared behavior belongs in deploy-single-host.core.ps1. ----------
+/deploy-single-host.ps1
+
+# ---------- SQL local data / dumps ----------
+*.mdf
+*.ldf
+*.ndf
+*.bak
+
+# ---------- Claude Code local settings ----------
+**/.claude/settings.local.json
+**/.claude/scheduled_tasks.lock
+
+# ---------- Editor / OS ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

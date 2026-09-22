@@ -1,0 +1,149 @@
+/* Design Tokens - Auto-generated */
+/* Do not edit directly - modify tokens.json instead */
+
+/* === PRIMITIVES === */
+:root {
+  --primitive-color-gray-50: #F8FAFA;
+  --primitive-color-gray-100: #EEF2F2;
+  --primitive-color-gray-200: #DFE6E6;
+  --primitive-color-gray-300: #C3CFCF;
+  --primitive-color-gray-400: #93A5A5;
+  --primitive-color-gray-500: #647878;
+  --primitive-color-gray-600: #475858;
+  --primitive-color-gray-700: #354242;
+  --primitive-color-gray-800: #232E2E;
+  --primitive-color-gray-900: #141C1C;
+  --primitive-color-gray-950: #0A0F0F;
+  --primitive-color-teal-50: #EEFBF9;
+  --primitive-color-teal-100: #D2F4EF;
+  --primitive-color-teal-200: #A6E9E0;
+  --primitive-color-teal-500: #0F9C8E;
+  --primitive-color-teal-600: #0B7F74;
+  --primitive-color-teal-700: #086259;
+  --primitive-color-teal-800: #064A44;
+  --primitive-color-gold-50: #FDF8ED;
+  --primitive-color-gold-100: #F9ECC6;
+  --primitive-color-gold-200: #F0DA98;
+  --primitive-color-gold-500: #C9A227;
+  --primitive-color-gold-600: #A67C24;
+  --primitive-color-gold-700: #8A651C;
+  --primitive-color-gold-800: #6B4D14;
+  --primitive-color-orange-50: #FFF3EA;
+  --primitive-color-orange-500: #E67E22;
+  --primitive-color-orange-600: #C2660F;
+  --primitive-color-green-50: #EEFAF2;
+  --primitive-color-green-500: #26A65B;
+  --primitive-color-green-600: #1D8548;
+  --primitive-color-red-50: #FDEFEF;
+  --primitive-color-red-500: #E0453F;
+  --primitive-color-red-600: #C1332D;
+  --primitive-color-blue-50: #EEF5FD;
+  --primitive-color-blue-500: #2E7FD1;
+  --primitive-color-blue-600: #2266AD;
+  --primitive-color-white: #FFFFFF;
+  --primitive-spacing-0: 0;
+  --primitive-spacing-1: 0.25rem;
+  --primitive-spacing-2: 0.5rem;
+  --primitive-spacing-3: 0.75rem;
+  --primitive-spacing-4: 1rem;
+  --primitive-spacing-5: 1.25rem;
+  --primitive-spacing-6: 1.5rem;
+  --primitive-spacing-8: 2rem;
+  --primitive-spacing-10: 2.5rem;
+  --primitive-spacing-12: 3rem;
+  --primitive-spacing-16: 4rem;
+  --primitive-fontSize-xs: 0.75rem;
+  --primitive-fontSize-sm: 0.875rem;
+  --primitive-fontSize-base: 1rem;
+  --primitive-fontSize-lg: 1.125rem;
+  --primitive-fontSize-xl: 1.25rem;
+  --primitive-fontSize-2xl: 1.5rem;
+  --primitive-fontSize-3xl: 1.875rem;
+  --primitive-fontSize-4xl: 2.25rem;
+  --primitive-radius-none: 0;
+  --primitive-radius-sm: 0.25rem;
+  --primitive-radius-default: 0.375rem;
+  --primitive-radius-md: 0.5rem;
+  --primitive-radius-lg: 0.75rem;
+  --primitive-radius-xl: 1rem;
+  --primitive-radius-full: 9999px;
+  --primitive-shadow-none: none;
+  --primitive-shadow-sm: 0 1px 2px 0 rgb(20 28 28 / 0.06);
+  --primitive-shadow-default: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --primitive-shadow-md: 0 4px 8px -2px rgb(20 28 28 / 0.12), 0 2px 4px -2px rgb(20 28 28 / 0.08);
+  --primitive-shadow-lg: 0 10px 20px -4px rgb(20 28 28 / 0.14), 0 4px 8px -4px rgb(20 28 28 / 0.10);
+  --primitive-duration-fast: 120ms;
+  --primitive-duration-normal: 180ms;
+  --primitive-duration-slow: 260ms;
+}
+
+/* === SEMANTIC === */
+:root {
+  --color-background: #F8FAFA;
+  --color-foreground: #141C1C;
+  --color-primary: #C9A227;
+  --color-primary-hover: #A67C24;
+  --color-primary-foreground: #141C1C;
+  --color-secondary: #EEF2F2;
+  --color-secondary-foreground: #141C1C;
+  --color-muted: #EEF2F2;
+  --color-muted-foreground: #647878;
+  --color-border: #DFE6E6;
+  --color-ring: #A67C24;
+  --color-success: #1D8548;
+  --color-success-bg: #EEFAF2;
+  --color-warning: #C2660F;
+  --color-warning-bg: #FFF3EA;
+  --color-destructive: #C1332D;
+  --color-destructive-foreground: #FFFFFF;
+  --color-destructive-bg: #FDEFEF;
+  --color-info: #2266AD;
+  --color-info-bg: #EEF5FD;
+  --spacing-component: 1rem;
+  --spacing-section: 2rem;
+  --status-ordered: #2266AD;
+  --status-paid-by-staff: #C2660F;
+  --status-reimbursed: #0B7F74;
+  --status-delivered: #1D8548;
+  --status-cancelled: #C1332D;
+  --status-refund-pending: #C2660F;
+  --status-in-stock: #1D8548;
+  --status-depleted: #647878;
+}
+
+/* === COMPONENTS === */
+:root {
+  --button-bg: #C9A227;
+  --button-fg: #141C1C;
+  --button-hover-bg: #A67C24;
+  --button-padding-x: 1rem;
+  --button-padding-y: 0.75rem;
+  --button-radius: 0.5rem;
+  --button-font-size: 0.875rem;
+  --input-bg: #F8FAFA;
+  --input-border: #DFE6E6;
+  --input-focus-ring: #A67C24;
+  --input-padding-x: 0.75rem;
+  --input-padding-y: 0.75rem;
+  --input-radius: 0.5rem;
+  --card-bg: #FFFFFF;
+  --card-border: #DFE6E6;
+  --card-shadow: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --card-padding: 1rem;
+  --card-radius: 0.75rem;
+  --badge-padding-x: 0.5rem;
+  --badge-padding-y: 0.25rem;
+  --badge-radius: 9999px;
+  --badge-font-size: 0.75rem;
+}
+
+/* === DARK MODE === */
+.dark {
+  --color-background: #0A0F0F;
+  --color-foreground: #F8FAFA;
+  --color-secondary: #232E2E;
+  --color-muted: #232E2E;
+  --color-muted-foreground: #93A5A5;
+  --color-border: #232E2E;
+  --status-depleted: #93A5A5;
+}

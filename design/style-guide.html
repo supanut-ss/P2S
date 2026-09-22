@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Design System Style Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* Design Tokens - Auto-generated */
+/* Do not edit directly - modify tokens.json instead */
+
+/* === PRIMITIVES === */
+:root {
+  --primitive-color-gray-50: #F8FAFA;
+  --primitive-color-gray-100: #EEF2F2;
+  --primitive-color-gray-200: #DFE6E6;
+  --primitive-color-gray-300: #C3CFCF;
+  --primitive-color-gray-400: #93A5A5;
+  --primitive-color-gray-500: #647878;
+  --primitive-color-gray-600: #475858;
+  --primitive-color-gray-700: #354242;
+  --primitive-color-gray-800: #232E2E;
+  --primitive-color-gray-900: #141C1C;
+  --primitive-color-gray-950: #0A0F0F;
+  --primitive-color-teal-50: #EEFBF9;
+  --primitive-color-teal-100: #D2F4EF;
+  --primitive-color-teal-200: #A6E9E0;
+  --primitive-color-teal-500: #0F9C8E;
+  --primitive-color-teal-600: #0B7F74;
+  --primitive-color-teal-700: #086259;
+  --primitive-color-teal-800: #064A44;
+  --primitive-color-gold-50: #FDF8ED;
+  --primitive-color-gold-100: #F9ECC6;
+  --primitive-color-gold-200: #F0DA98;
+  --primitive-color-gold-500: #C9A227;
+  --primitive-color-gold-600: #A67C24;
+  --primitive-color-gold-700: #8A651C;
+  --primitive-color-gold-800: #6B4D14;
+  --primitive-color-orange-50: #FFF3EA;
+  --primitive-color-orange-500: #E67E22;
+  --primitive-color-orange-600: #C2660F;
+  --primitive-color-green-50: #EEFAF2;
+  --primitive-color-green-500: #26A65B;
+  --primitive-color-green-600: #1D8548;
+  --primitive-color-red-50: #FDEFEF;
+  --primitive-color-red-500: #E0453F;
+  --primitive-color-red-600: #C1332D;
+  --primitive-color-blue-50: #EEF5FD;
+  --primitive-color-blue-500: #2E7FD1;
+  --primitive-color-blue-600: #2266AD;
+  --primitive-color-white: #FFFFFF;
+  --primitive-spacing-0: 0;
+  --primitive-spacing-1: 0.25rem;
+  --primitive-spacing-2: 0.5rem;
+  --primitive-spacing-3: 0.75rem;
+  --primitive-spacing-4: 1rem;
+  --primitive-spacing-5: 1.25rem;
+  --primitive-spacing-6: 1.5rem;
+  --primitive-spacing-8: 2rem;
+  --primitive-spacing-10: 2.5rem;
+  --primitive-spacing-12: 3rem;
+  --primitive-spacing-16: 4rem;
+  --primitive-fontSize-xs: 0.75rem;
+  --primitive-fontSize-sm: 0.875rem;
+  --primitive-fontSize-base: 1rem;
+  --primitive-fontSize-lg: 1.125rem;
+  --primitive-fontSize-xl: 1.25rem;
+  --primitive-fontSize-2xl: 1.5rem;
+  --primitive-fontSize-3xl: 1.875rem;
+  --primitive-fontSize-4xl: 2.25rem;
+  --primitive-radius-none: 0;
+  --primitive-radius-sm: 0.25rem;
+  --primitive-radius-default: 0.375rem;
+  --primitive-radius-md: 0.5rem;
+  --primitive-radius-lg: 0.75rem;
+  --primitive-radius-xl: 1rem;
+  --primitive-radius-full: 9999px;
+  --primitive-shadow-none: none;
+  --primitive-shadow-sm: 0 1px 2px 0 rgb(20 28 28 / 0.06);
+  --primitive-shadow-default: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --primitive-shadow-md: 0 4px 8px -2px rgb(20 28 28 / 0.12), 0 2px 4px -2px rgb(20 28 28 / 0.08);
+  --primitive-shadow-lg: 0 10px 20px -4px rgb(20 28 28 / 0.14), 0 4px 8px -4px rgb(20 28 28 / 0.10);
+  --primitive-duration-fast: 120ms;
+  --primitive-duration-normal: 180ms;
+  --primitive-duration-slow: 260ms;
+}
+
+/* === SEMANTIC === */
+:root {
+  --color-background: #F8FAFA;
+  --color-foreground: #141C1C;
+  --color-primary: #C9A227;
+  --color-primary-hover: #A67C24;
+  --color-primary-foreground: #141C1C;
+  --color-secondary: #EEF2F2;
+  --color-secondary-foreground: #141C1C;
+  --color-muted: #EEF2F2;
+  --color-muted-foreground: #647878;
+  --color-border: #DFE6E6;
+  --color-ring: #A67C24;
+  --color-success: #1D8548;
+  --color-success-bg: #EEFAF2;
+  --color-warning: #C2660F;
+  --color-warning-bg: #FFF3EA;
+  --color-destructive: #C1332D;
+  --color-destructive-foreground: #FFFFFF;
+  --color-destructive-bg: #FDEFEF;
+  --color-info: #2266AD;
+  --color-info-bg: #EEF5FD;
+  --spacing-component: 1rem;
+  --spacing-section: 2rem;
+  --status-ordered: #2266AD;
+  --status-paid-by-staff: #C2660F;
+  --status-reimbursed: #0B7F74;
+  --status-delivered: #1D8548;
+  --status-cancelled: #C1332D;
+  --status-refund-pending: #C2660F;
+  --status-in-stock: #1D8548;
+  --status-depleted: #647878;
+}
+
+/* === COMPONENTS === */
+:root {
+  --button-bg: #C9A227;
+  --button-fg: #141C1C;
+  --button-hover-bg: #A67C24;
+  --button-padding-x: 1rem;
+  --button-padding-y: 0.75rem;
+  --button-radius: 0.5rem;
+  --button-font-size: 0.875rem;
+  --input-bg: #F8FAFA;
+  --input-border: #DFE6E6;
+  --input-focus-ring: #A67C24;
+  --input-padding-x: 0.75rem;
+  --input-padding-y: 0.75rem;
+  --input-radius: 0.5rem;
+  --card-bg: #FFFFFF;
+  --card-border: #DFE6E6;
+  --card-shadow: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --card-padding: 1rem;
+  --card-radius: 0.75rem;
+  --badge-padding-x: 0.5rem;
+  --badge-padding-y: 0.25rem;
+  --badge-radius: 9999px;
+  --badge-font-size: 0.75rem;
+}
+
+/* === DARK MODE === */
+.dark {
+  --color-background: #0A0F0F;
+  --color-foreground: #F8FAFA;
+  --color-secondary: #232E2E;
+  --color-muted: #232E2E;
+  --color-muted-foreground: #93A5A5;
+  --color-border: #232E2E;
+  --status-depleted: #93A5A5;
+}
+
+</style>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2.5rem clamp(1rem, 5vw, 4rem) 5rem;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--color-background, #F9FAFB);
+    color: var(--color-foreground, #111827);
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.75rem; margin: 0 0 0.25rem; }
+  .brief { color: var(--color-muted-foreground, #6B7280); margin: 0 0 3rem; font-size: 1rem; }
+  section { margin-bottom: 3.5rem; }
+  h2 { font-size: 1.125rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted-foreground, #6B7280); border-bottom: 1px solid var(--color-border, #E5E7EB); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+  .swatch-color { height: 72px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); }
+  .swatch-label { font-size: 0.75rem; font-weight: 600; margin-top: 0.5rem; }
+  .swatch-value { font-size: 0.7rem; color: var(--color-muted-foreground, #6B7280); font-family: ui-monospace, monospace; }
+  .type-row { padding: 0.75rem 0; border-bottom: 1px dashed var(--color-border, #E5E7EB); }
+  .space-row { display: flex; align-items: center; gap: 1rem; padding: 0.4rem 0; }
+  .space-label { width: 160px; font-size: 0.8rem; color: var(--color-muted-foreground, #6B7280); flex-shrink: 0; }
+  .space-bar { height: 14px; background: var(--color-primary, #2563EB); border-radius: 3px; }
+  .shape-row { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+  .shape-box { width: 96px; height: 72px; background: #fff; border: 1px solid var(--color-border, #E5E7EB); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 0.4rem; font-size: 0.65rem; color: var(--color-muted-foreground, #6B7280); }
+  .components { display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start; }
+  .component-block { display: flex; flex-direction: column; gap: 0.6rem; }
+  .component-block h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted-foreground, #6B7280); margin: 0; }
+  .btn { display: inline-block; padding: var(--button-padding-y, 0.5rem) var(--button-padding-x, 1rem); background: var(--button-bg, var(--color-primary, #2563EB)); color: var(--button-fg, #fff); border-radius: var(--button-radius, 6px); font-size: var(--button-font-size, 0.875rem); border: none; cursor: pointer; }
+  .btn:hover { background: var(--button-hover-bg, var(--color-primary-hover, #1D4ED8)); }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .input-sample { padding: var(--input-padding-y, 0.5rem) var(--input-padding-x, 0.75rem); border: 1px solid var(--input-border, var(--color-border, #E5E7EB)); border-radius: var(--input-radius, 6px); font-size: 0.875rem; width: 220px; }
+  .input-sample:focus { outline: 2px solid var(--input-focus-ring, var(--color-ring, #3B82F6)); outline-offset: 1px; }
+  .card-sample { background: var(--card-bg, #fff); border: 1px solid var(--card-border, var(--color-border, #E5E7EB)); box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,0.1)); border-radius: var(--card-radius, 8px); padding: var(--card-padding, 1.5rem); width: 220px; font-size: 0.875rem; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .badge { display: inline-block; padding: var(--badge-padding-y, 0.25rem) var(--badge-padding-x, 0.5rem); border-radius: var(--badge-radius, 9999px); font-size: var(--badge-font-size, 0.75rem); font-weight: 600; color: #fff; }
+</style>
+</head>
+<body>
+  <h1>Design System Style Guide</h1>
+  <p class="brief">ระบบจัดซื้อ-เบิกจ่าย-ติดตามพัสดุ สำหรับทีม ops บนมือถือ/แท็บเล็ต โทนน่าเชื่อถือ ชัดเจน สแกนง่าย</p>
+
+  <section><h2>Primitive Colors</h2><div class="grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#F8FAFA"></div>
+      <div class="swatch-label">primitive.color.gray.50</div>
+      <div class="swatch-value">#F8FAFA</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEF2F2"></div>
+      <div class="swatch-label">primitive.color.gray.100</div>
+      <div class="swatch-value">#EEF2F2</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#DFE6E6"></div>
+      <div class="swatch-label">primitive.color.gray.200</div>
+      <div class="swatch-value">#DFE6E6</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C3CFCF"></div>
+      <div class="swatch-label">primitive.color.gray.300</div>
+      <div class="swatch-value">#C3CFCF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#93A5A5"></div>
+      <div class="swatch-label">primitive.color.gray.400</div>
+      <div class="swatch-value">#93A5A5</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#647878"></div>
+      <div class="swatch-label">primitive.color.gray.500</div>
+      <div class="swatch-value">#647878</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#475858"></div>
+      <div class="swatch-label">primitive.color.gray.600</div>
+      <div class="swatch-value">#475858</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#354242"></div>
+      <div class="swatch-label">primitive.color.gray.700</div>
+      <div class="swatch-value">#354242</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#232E2E"></div>
+      <div class="swatch-label">primitive.color.gray.800</div>
+      <div class="swatch-value">#232E2E</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#141C1C"></div>
+      <div class="swatch-label">primitive.color.gray.900</div>
+      <div class="swatch-value">#141C1C</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0A0F0F"></div>
+      <div class="swatch-label">primitive.color.gray.950</div>
+      <div class="swatch-value">#0A0F0F</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEFBF9"></div>
+      <div class="swatch-label">primitive.color.teal.50</div>
+      <div class="swatch-value">#EEFBF9</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#D2F4EF"></div>
+      <div class="swatch-label">primitive.color.teal.100</div>
+      <div class="swatch-value">#D2F4EF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#A6E9E0"></div>
+      <div class="swatch-label">primitive.color.teal.200</div>
+      <div class="swatch-value">#A6E9E0</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0F9C8E"></div>
+      <div class="swatch-label">primitive.color.teal.500</div>
+      <div class="swatch-value">#0F9C8E</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#0B7F74"></div>
+      <div class="swatch-label">primitive.color.teal.600</div>
+      <div class="swatch-value">#0B7F74</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#086259"></div>
+      <div class="swatch-label">primitive.color.teal.700</div>
+      <div class="swatch-value">#086259</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#064A44"></div>
+      <div class="swatch-label">primitive.color.teal.800</div>
+      <div class="swatch-value">#064A44</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FDF8ED"></div>
+      <div class="swatch-label">primitive.color.gold.50</div>
+      <div class="swatch-value">#FDF8ED</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#F9ECC6"></div>
+      <div class="swatch-label">primitive.color.gold.100</div>
+      <div class="swatch-value">#F9ECC6</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#F0DA98"></div>
+      <div class="swatch-label">primitive.color.gold.200</div>
+      <div class="swatch-value">#F0DA98</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C9A227"></div>
+      <div class="swatch-label">primitive.color.gold.500 (primary)</div>
+      <div class="swatch-value">#C9A227</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#A67C24"></div>
+      <div class="swatch-label">primitive.color.gold.600 (primary-hover)</div>
+      <div class="swatch-value">#A67C24</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#8A651C"></div>
+      <div class="swatch-label">primitive.color.gold.700</div>
+      <div class="swatch-value">#8A651C</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#6B4D14"></div>
+      <div class="swatch-label">primitive.color.gold.800</div>
+      <div class="swatch-value">#6B4D14</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FFF3EA"></div>
+      <div class="swatch-label">primitive.color.orange.50</div>
+      <div class="swatch-value">#FFF3EA</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#E67E22"></div>
+      <div class="swatch-label">primitive.color.orange.500</div>
+      <div class="swatch-value">#E67E22</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C2660F"></div>
+      <div class="swatch-label">primitive.color.orange.600 (warning)</div>
+      <div class="swatch-value">#C2660F</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEFAF2"></div>
+      <div class="swatch-label">primitive.color.green.50</div>
+      <div class="swatch-value">#EEFAF2</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#26A65B"></div>
+      <div class="swatch-label">primitive.color.green.500</div>
+      <div class="swatch-value">#26A65B</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#1D8548"></div>
+      <div class="swatch-label">primitive.color.green.600</div>
+      <div class="swatch-value">#1D8548</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FDEFEF"></div>
+      <div class="swatch-label">primitive.color.red.50</div>
+      <div class="swatch-value">#FDEFEF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#E0453F"></div>
+      <div class="swatch-label">primitive.color.red.500</div>
+      <div class="swatch-value">#E0453F</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C1332D"></div>
+      <div class="swatch-label">primitive.color.red.600</div>
+      <div class="swatch-value">#C1332D</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEF5FD"></div>
+      <div class="swatch-label">primitive.color.blue.50</div>
+      <div class="swatch-value">#EEF5FD</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#2E7FD1"></div>
+      <div class="swatch-label">primitive.color.blue.500</div>
+      <div class="swatch-value">#2E7FD1</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#2266AD"></div>
+      <div class="swatch-label">primitive.color.blue.600</div>
+      <div class="swatch-value">#2266AD</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FFFFFF"></div>
+      <div class="swatch-label">primitive.color.white</div>
+      <div class="swatch-value">#FFFFFF</div>
+    </div></div></section>
+  <section><h2>Semantic Colors</h2><div class="grid">
+    <div class="swatch">
+      <div class="swatch-color" style="background:#F8FAFA"></div>
+      <div class="swatch-label">semantic.color.background</div>
+      <div class="swatch-value">#F8FAFA</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#141C1C"></div>
+      <div class="swatch-label">semantic.color.foreground</div>
+      <div class="swatch-value">#141C1C</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C9A227"></div>
+      <div class="swatch-label">semantic.color.primary</div>
+      <div class="swatch-value">#C9A227</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#A67C24"></div>
+      <div class="swatch-label">semantic.color.primary-hover</div>
+      <div class="swatch-value">#A67C24</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#141C1C"></div>
+      <div class="swatch-label">semantic.color.primary-foreground</div>
+      <div class="swatch-value">#141C1C</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEF2F2"></div>
+      <div class="swatch-label">semantic.color.secondary</div>
+      <div class="swatch-value">#EEF2F2</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#141C1C"></div>
+      <div class="swatch-label">semantic.color.secondary-foreground</div>
+      <div class="swatch-value">#141C1C</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEF2F2"></div>
+      <div class="swatch-label">semantic.color.muted</div>
+      <div class="swatch-value">#EEF2F2</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#647878"></div>
+      <div class="swatch-label">semantic.color.muted-foreground</div>
+      <div class="swatch-value">#647878</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#DFE6E6"></div>
+      <div class="swatch-label">semantic.color.border</div>
+      <div class="swatch-value">#DFE6E6</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#A67C24"></div>
+      <div class="swatch-label">semantic.color.ring</div>
+      <div class="swatch-value">#A67C24</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#1D8548"></div>
+      <div class="swatch-label">semantic.color.success</div>
+      <div class="swatch-value">#1D8548</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEFAF2"></div>
+      <div class="swatch-label">semantic.color.success-bg</div>
+      <div class="swatch-value">#EEFAF2</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C2660F"></div>
+      <div class="swatch-label">semantic.color.warning</div>
+      <div class="swatch-value">#C2660F</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FFF3EA"></div>
+      <div class="swatch-label">semantic.color.warning-bg</div>
+      <div class="swatch-value">#FFF3EA</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#C1332D"></div>
+      <div class="swatch-label">semantic.color.destructive</div>
+      <div class="swatch-value">#C1332D</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FFFFFF"></div>
+      <div class="swatch-label">semantic.color.destructive-foreground</div>
+      <div class="swatch-value">#FFFFFF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#FDEFEF"></div>
+      <div class="swatch-label">semantic.color.destructive-bg</div>
+      <div class="swatch-value">#FDEFEF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#2266AD"></div>
+      <div class="swatch-label">semantic.color.info</div>
+      <div class="swatch-value">#2266AD</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-color" style="background:#EEF5FD"></div>
+      <div class="swatch-label">semantic.color.info-bg</div>
+      <div class="swatch-value">#EEF5FD</div>
+    </div></div></section>
+  <section><h2>Type Scale</h2>
+    <div class="type-row" style="font-size:0.75rem">primitive.fontSize.xs — Aa 1234 (0.75rem)</div>
+    <div class="type-row" style="font-size:0.875rem">primitive.fontSize.sm — Aa 1234 (0.875rem)</div>
+    <div class="type-row" style="font-size:1rem">primitive.fontSize.base — Aa 1234 (1rem)</div>
+    <div class="type-row" style="font-size:1.125rem">primitive.fontSize.lg — Aa 1234 (1.125rem)</div>
+    <div class="type-row" style="font-size:1.25rem">primitive.fontSize.xl — Aa 1234 (1.25rem)</div>
+    <div class="type-row" style="font-size:1.5rem">primitive.fontSize.2xl — Aa 1234 (1.5rem)</div>
+    <div class="type-row" style="font-size:1.875rem">primitive.fontSize.3xl — Aa 1234 (1.875rem)</div>
+    <div class="type-row" style="font-size:2.25rem">primitive.fontSize.4xl — Aa 1234 (2.25rem)</div></section>
+  <section><h2>Spacing Scale</h2>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.0 (0)</div>
+      <div class="space-bar" style="width:0"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.1 (0.25rem)</div>
+      <div class="space-bar" style="width:0.25rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.2 (0.5rem)</div>
+      <div class="space-bar" style="width:0.5rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.3 (0.75rem)</div>
+      <div class="space-bar" style="width:0.75rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.4 (1rem)</div>
+      <div class="space-bar" style="width:1rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.5 (1.25rem)</div>
+      <div class="space-bar" style="width:1.25rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.6 (1.5rem)</div>
+      <div class="space-bar" style="width:1.5rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.8 (2rem)</div>
+      <div class="space-bar" style="width:2rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.10 (2.5rem)</div>
+      <div class="space-bar" style="width:2.5rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.12 (3rem)</div>
+      <div class="space-bar" style="width:3rem"></div>
+    </div>
+    <div class="space-row">
+      <div class="space-label">primitive.spacing.16 (4rem)</div>
+      <div class="space-bar" style="width:4rem"></div>
+    </div></section>
+  <section><h2>Radius</h2><div class="shape-row">
+    <div class="shape-box" style="border-radius:0">
+      <span>primitive.radius.none</span>
+    </div>
+    <div class="shape-box" style="border-radius:0.25rem">
+      <span>primitive.radius.sm</span>
+    </div>
+    <div class="shape-box" style="border-radius:0.375rem">
+      <span>primitive.radius.default</span>
+    </div>
+    <div class="shape-box" style="border-radius:0.5rem">
+      <span>primitive.radius.md</span>
+    </div>
+    <div class="shape-box" style="border-radius:0.75rem">
+      <span>primitive.radius.lg</span>
+    </div>
+    <div class="shape-box" style="border-radius:1rem">
+      <span>primitive.radius.xl</span>
+    </div>
+    <div class="shape-box" style="border-radius:9999px">
+      <span>primitive.radius.full</span>
+    </div></div></section>
+  <section><h2>Shadow</h2><div class="shape-row">
+    <div class="shape-box shadow-box" style="box-shadow:none">
+      <span>primitive.shadow.none</span>
+    </div>
+    <div class="shape-box shadow-box" style="box-shadow:0 1px 2px 0 rgb(20 28 28 / 0.06)">
+      <span>primitive.shadow.sm</span>
+    </div>
+    <div class="shape-box shadow-box" style="box-shadow:0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10)">
+      <span>primitive.shadow.default</span>
+    </div>
+    <div class="shape-box shadow-box" style="box-shadow:0 4px 8px -2px rgb(20 28 28 / 0.12), 0 2px 4px -2px rgb(20 28 28 / 0.08)">
+      <span>primitive.shadow.md</span>
+    </div>
+    <div class="shape-box shadow-box" style="box-shadow:0 10px 20px -4px rgb(20 28 28 / 0.14), 0 4px 8px -4px rgb(20 28 28 / 0.10)">
+      <span>primitive.shadow.lg</span>
+    </div></div></section>
+
+  <section>
+    <h2>Components</h2>
+    <div class="components">
+      <div class="component-block">
+        <h3>Button</h3>
+        <button class="btn">Default</button>
+        <button class="btn" disabled>Disabled</button>
+      </div>
+      <div class="component-block">
+        <h3>Input</h3>
+        <input class="input-sample" placeholder="Type something…">
+      </div>
+      <div class="component-block">
+        <h3>Card</h3>
+        <div class="card-sample">Card content sample using card tokens.</div>
+      </div>
+      <div class="component-block">
+        <h3>Status Badges</h3>
+        <div class="badge-row">
+          <span class="badge" style="background: var(--status-ordered)">Ordered</span>
+          <span class="badge" style="background: var(--status-paid-by-staff)">Paid by staff</span>
+          <span class="badge" style="background: var(--status-reimbursed)">Reimbursed</span>
+          <span class="badge" style="background: var(--status-delivered)">Delivered</span>
+          <span class="badge" style="background: var(--status-cancelled)">Cancelled</span>
+          <span class="badge" style="background: var(--status-refund-pending)">Refund pending</span>
+          <span class="badge" style="background: var(--status-in-stock)">In stock</span>
+          <span class="badge" style="background: var(--status-depleted)">Depleted</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
