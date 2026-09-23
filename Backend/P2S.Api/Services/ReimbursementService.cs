@@ -30,6 +30,12 @@ public class ReimbursementService : IReimbursementService
             throw new ArgumentException("มีออเดอร์ที่ไม่พบในรายการ", nameof(purchaseOrderIds));
         }
 
+        var otherOwners = orders.Where(o => o.OrderedByUserId != requestedByUserId).ToList();
+        if (otherOwners.Count > 0)
+        {
+            throw new InvalidOperationException("ขอเบิกได้เฉพาะออเดอร์ที่ตนเองสำรองจ่าย");
+        }
+
         var notPaidByStaff = orders.Where(o => o.Status != PurchaseOrderStatus.PaidByStaff).ToList();
         if (notPaidByStaff.Count > 0)
         {

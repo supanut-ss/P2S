@@ -20,6 +20,7 @@ public class OrdersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "staff,admin")]
     public async Task<ActionResult<PurchaseOrderResponse>> Create(CreateOrderRequest request, CancellationToken ct)
     {
         if (request.Items.Count == 0)
@@ -72,6 +73,12 @@ public class OrdersController : ControllerBase
             .Include(o => o.OrderItems).ThenInclude(i => i.Product)
             .AsQueryable();
 
+        if (!User.IsInRole("admin"))
+        {
+            var currentUserId = this.CurrentUserId();
+            query = query.Where(o => o.OrderedByUserId == currentUserId);
+        }
+
         if (platformId is not null) query = query.Where(o => o.PlatformId == platformId);
         if (userId is not null) query = query.Where(o => o.OrderedByUserId == userId);
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<PurchaseOrderStatus>(status, out var parsedStatus))
@@ -93,7 +100,8 @@ public class OrdersController : ControllerBase
                 .Where(r => r.Status != ReimbursementStatus.Paid)
                 .SelectMany(r => r.PurchaseOrders.Select(po => po.Id))
                 .ToListAsync(ct);
-            query = query.Where(o => !requestedOrderIds.Contains(o.Id));
+            var currentUserId = this.CurrentUserId();
+            query = query.Where(o => o.OrderedByUserId == currentUserId && !requestedOrderIds.Contains(o.Id));
         }
 
         var orders = await query.OrderByDescending(o => o.OrderedAt).ToListAsync(ct);
@@ -110,10 +118,12 @@ public class OrdersController : ControllerBase
     /// <summary>Staff confirms they've paid the shop with their own card — creates the
     /// AdvancePaid ledger entry (company now owes this amount to the staff member).</summary>
     [HttpPost("{id:int}/mark-paid")]
+    [Authorize(Roles = "staff,admin")]
     public async Task<ActionResult<PurchaseOrderResponse>> MarkPaid(int id, CancellationToken ct)
     {
         var order = await _db.PurchaseOrders.FindAsync([id], ct);
         if (order is null) return NotFound();
+        if (!User.IsInRole("admin") && order.OrderedByUserId != this.CurrentUserId()) return NotFound();
         if (order.Status != PurchaseOrderStatus.Ordered)
         {
             return BadRequest(new { message = $"ออเดอร์นี้อยู่ในสถานะ {order.Status} แล้ว ไม่สามารถ mark-paid ซ้ำได้" });
@@ -136,10 +146,14 @@ public class OrdersController : ControllerBase
     /// <summary>Staff records the shop's tracking number once it ships — required before the
     /// scan-receiving screen can barcode-match this item (see DeliveriesController).</summary>
     [HttpPost("items/{orderItemId:int}/tracking")]
+    [Authorize(Roles = "staff,admin")]
     public async Task<IActionResult> SetTracking(int orderItemId, SetTrackingRequest request, CancellationToken ct)
     {
-        var item = await _db.OrderItems.FindAsync([orderItemId], ct);
+        var item = await _db.OrderItems
+            .Include(i => i.PurchaseOrder)
+            .FirstOrDefaultAsync(i => i.Id == orderItemId, ct);
         if (item is null) return NotFound();
+        if (!User.IsInRole("admin") && item.PurchaseOrder.OrderedByUserId != this.CurrentUserId()) return NotFound();
         if (item.Status != OrderItemStatus.Pending)
         {
             return BadRequest(new { message = $"รายการนี้อยู่ในสถานะ {item.Status} แล้ว ไม่ใช่ Pending" });
@@ -153,7 +167,14 @@ public class OrdersController : ControllerBase
 
     private async Task<PurchaseOrderResponse?> ToResponse(int id, CancellationToken ct)
     {
-        var order = await _db.PurchaseOrders
+        var query = _db.PurchaseOrders.AsQueryable();
+        if (!User.IsInRole("admin"))
+        {
+            var currentUserId = this.CurrentUserId();
+            query = query.Where(o => o.OrderedByUserId == currentUserId);
+        }
+
+        var order = await query
             .Include(o => o.Platform)
             .Include(o => o.OrderedByUser)
             .Include(o => o.OrderItems).ThenInclude(i => i.Product)

@@ -61,6 +61,34 @@ public class ReimbursementServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_RejectsOrdersOwnedByAnotherStaffMember()
+    {
+        await using var db = CreateContext();
+        var (requester, product) = await SeedBaseAsync(db);
+        var orderOwner = new User { Username = "u2", PasswordHash = "x", FullName = "U2", RoleId = 1 };
+        db.Users.Add(orderOwner);
+        await db.SaveChangesAsync();
+
+        var order = new PurchaseOrder
+        {
+            PlatformId = 1,
+            OrderedByUserId = orderOwner.Id,
+            PlatformOrderNo = "O6",
+            TotalAmount = 100m,
+            Status = PurchaseOrderStatus.PaidByStaff
+        };
+        order.OrderItems.Add(new OrderItem { ProductId = product.Id, Qty = 1, UnitPrice = 100m, Status = OrderItemStatus.Arrived });
+        db.PurchaseOrders.Add(order);
+        await db.SaveChangesAsync();
+
+        var service = new ReimbursementService(db);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.CreateAsync(requester.Id, [order.Id], CancellationToken.None));
+
+        Assert.Contains("ตนเองสำรองจ่าย", exception.Message);
+    }
+
+    [Fact]
     public async Task CreateAsync_RejectsOrderAlreadyInAnUnpaidReimbursement()
     {
         // order.Status stays PaidByStaff until a reimbursement is actually Paid, so a second

@@ -16,7 +16,8 @@ const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' 
 
 export function ReimbursementsPage() {
   const { user } = useAuth();
-  const canActOnBehalfOfFinance = user?.role === 'finance' || user?.role === 'admin';
+  const canRequestReimbursement = user?.role === 'staff' || user?.role === 'admin';
+  const canReviewReimbursements = user?.role === 'finance' || user?.role === 'admin';
 
   const [reimbursements, setReimbursements] = useState<ReimbursementResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
@@ -34,7 +35,9 @@ export function ReimbursementsPage() {
     try {
       const [reimbursementsData, ordersData] = await Promise.all([
         listReimbursements(statusFilter || undefined),
-        listOrders({ status: 'PaidByStaff', excludeRequested: true }),
+        canRequestReimbursement
+          ? listOrders({ status: 'PaidByStaff', excludeRequested: true })
+          : Promise.resolve<PurchaseOrderResponse[]>([]),
       ]);
       setReimbursements(reimbursementsData);
       setEligibleOrders(ordersData);
@@ -105,13 +108,20 @@ export function ReimbursementsPage() {
 
   return (
     <>
-      <PageHeader title="Reimbursement queue" subtitle="ฝ่ายการเงินอนุมัติ/จ่ายเป็นชุด (แยกอิสระจากหน้าสแกน/คลัง)" />
+      <PageHeader
+        title={canReviewReimbursements ? 'คิวตรวจสอบการเบิกเงิน' : 'ขอเบิกเงิน'}
+        subtitle={canReviewReimbursements
+          ? 'ตรวจสอบคำขอของพนักงาน อนุมัติ และบันทึกการจ่ายเงิน'
+          : 'ส่งคำขอสำหรับออเดอร์ที่คุณสำรองจ่าย และติดตามสถานะ'}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดคำขอเบิกเงิน" sx={{ mb: 2 }} />}
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message}</Alert>}
 
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>ออเดอร์ที่จ่ายแล้ว รอขอเบิก</Typography>
+      {canRequestReimbursement && (
+        <>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>ออเดอร์ที่คุณสำรองจ่ายและรอขอเบิก</Typography>
       <TableContainer component={Paper} variant="outlined" sx={{ mb: 1, display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
           <TableHead>
@@ -158,9 +168,13 @@ export function ReimbursementsPage() {
         <Typography variant="body2">เลือกแล้ว {selected.size} ออเดอร์ — ยอดรวม {thb.format(selectedTotal)}</Typography>
         <Button variant="contained" disabled={selected.size === 0 || submitting} onClick={handleCreateRequest} sx={{ minHeight: 44 }}>ส่งคำขอเบิกเงิน</Button>
       </Box>
+        </>
+      )}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1, mb: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>คำขอเบิกเงิน</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+          {user?.role === 'staff' ? 'คำขอของฉัน' : canReviewReimbursements ? 'คำขอจากพนักงาน' : 'คำขอเบิกเงิน'}
+        </Typography>
         <ResponsiveSelectField
           label="สถานะ"
           size="small"
@@ -191,10 +205,10 @@ export function ReimbursementsPage() {
                 <TableCell><StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} /></TableCell>
                 <TableCell>{new Date(r.requestedAt).toLocaleDateString('th-TH')}</TableCell>
                 <TableCell align="right">
-                  {canActOnBehalfOfFinance && r.status === 'Pending' && (
+                  {canReviewReimbursements && r.status === 'Pending' && (
                     <Button size="small" disabled={busyId !== null} onClick={() => handleApprove(r.id)}>อนุมัติ</Button>
                   )}
-                  {canActOnBehalfOfFinance && r.status === 'Approved' && (
+                  {canReviewReimbursements && r.status === 'Approved' && (
                     <Button size="small" disabled={busyId !== null} onClick={() => handlePay(r.id)}>จ่ายเงิน</Button>
                   )}
                 </TableCell>
@@ -215,8 +229,8 @@ export function ReimbursementsPage() {
                 <StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} />
               </Box>
               <Typography sx={{ mb: 1.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(r.totalAmount)}</Typography>
-              {canActOnBehalfOfFinance && r.status === 'Pending' && <Button fullWidth variant="outlined" disabled={busyId !== null} onClick={() => handleApprove(r.id)} sx={{ minHeight: 44 }}>อนุมัติ</Button>}
-              {canActOnBehalfOfFinance && r.status === 'Approved' && <Button fullWidth variant="contained" disabled={busyId !== null} onClick={() => handlePay(r.id)} sx={{ minHeight: 44 }}>จ่ายเงิน</Button>}
+              {canReviewReimbursements && r.status === 'Pending' && <Button fullWidth variant="outlined" disabled={busyId !== null} onClick={() => handleApprove(r.id)} sx={{ minHeight: 44 }}>อนุมัติ</Button>}
+              {canReviewReimbursements && r.status === 'Approved' && <Button fullWidth variant="contained" disabled={busyId !== null} onClick={() => handlePay(r.id)} sx={{ minHeight: 44 }}>จ่ายเงิน</Button>}
             </CardContent>
           </Card>
         ))}

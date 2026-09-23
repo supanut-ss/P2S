@@ -23,6 +23,7 @@ public class ReimbursementsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "staff,admin")]
     public async Task<ActionResult<ReimbursementResponse>> Create(CreateReimbursementRequest request, CancellationToken ct)
     {
         try
@@ -49,6 +50,11 @@ public class ReimbursementsController : ControllerBase
             .Include(r => r.RequestedByUser)
             .Include(r => r.PurchaseOrders)
             .AsQueryable();
+
+        if (User.IsInRole("staff"))
+        {
+            query = query.Where(r => r.RequestedByUserId == this.CurrentUserId());
+        }
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ReimbursementStatus>(status, out var parsedStatus))
         {

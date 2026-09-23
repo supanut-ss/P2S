@@ -14,7 +14,7 @@ namespace P2S.Api.Controllers;
 /// available as a fallback since barcodes don't scan cleanly on every phone/box.</summary>
 [ApiController]
 [Route("api/deliveries")]
-[Authorize]
+[Authorize(Roles = "staff,admin")]
 public class DeliveriesController : ControllerBase
 {
     private readonly P2SDbContext _db;
@@ -38,6 +38,12 @@ public class DeliveriesController : ControllerBase
             .Include(i => i.Product)
             .Include(i => i.PurchaseOrder).ThenInclude(o => o.Platform)
             .Where(i => i.Status == OrderItemStatus.Pending);
+
+        if (!User.IsInRole("admin"))
+        {
+            var currentUserId = this.CurrentUserId();
+            query = query.Where(i => i.PurchaseOrder.OrderedByUserId == currentUserId);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -65,8 +71,11 @@ public class DeliveriesController : ControllerBase
             return BadRequest(new { message = $"ไม่รู้จัก match method '{request.MatchMethod}'" });
         }
 
-        var orderItem = await _db.OrderItems.FirstOrDefaultAsync(i => i.Id == orderItemId, ct);
+        var orderItem = await _db.OrderItems
+            .Include(i => i.PurchaseOrder)
+            .FirstOrDefaultAsync(i => i.Id == orderItemId, ct);
         if (orderItem is null) return NotFound();
+        if (!User.IsInRole("admin") && orderItem.PurchaseOrder.OrderedByUserId != this.CurrentUserId()) return NotFound();
         if (orderItem.Status != OrderItemStatus.Pending)
         {
             return BadRequest(new { message = $"รายการนี้อยู่ในสถานะ {orderItem.Status} แล้ว ไม่ใช่ Pending" });
@@ -91,8 +100,11 @@ public class DeliveriesController : ControllerBase
     [HttpPost("{orderItemId:int}/cancel")]
     public async Task<IActionResult> Cancel(int orderItemId, CancelOrderItemRequest request, CancellationToken ct)
     {
-        var orderItem = await _db.OrderItems.FirstOrDefaultAsync(i => i.Id == orderItemId, ct);
+        var orderItem = await _db.OrderItems
+            .Include(i => i.PurchaseOrder)
+            .FirstOrDefaultAsync(i => i.Id == orderItemId, ct);
         if (orderItem is null) return NotFound();
+        if (!User.IsInRole("admin") && orderItem.PurchaseOrder.OrderedByUserId != this.CurrentUserId()) return NotFound();
         if (orderItem.Status != OrderItemStatus.Pending)
         {
             return BadRequest(new { message = $"รายการนี้อยู่ในสถานะ {orderItem.Status} แล้ว ไม่ใช่ Pending" });
