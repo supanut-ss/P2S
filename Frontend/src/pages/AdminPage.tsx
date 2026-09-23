@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Chip, MenuItem, Paper, Switch, Tab, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Tabs, TextField,
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
+  MenuItem, Paper, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Tabs, TextField,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import { PageHeader } from '../components/PageHeader';
 import {
   createPlatform, createProduct, createUser, createWithdrawalReason,
@@ -23,6 +25,13 @@ export function AdminPage() {
   const [newProductName, setNewProductName] = useState('');
   const [newProductSku, setNewProductSku] = useState('');
   const [newProductUnit, setNewProductUnit] = useState('ชิ้น');
+
+  const [editingProduct, setEditingProduct] = useState<ProductResponse | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editSku, setEditSku] = useState('');
+  const [editUnit, setEditUnit] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [platforms, setPlatforms] = useState<PlatformResponse[]>([]);
   const [newPlatformCode, setNewPlatformCode] = useState('');
@@ -66,8 +75,41 @@ export function AdminPage() {
   };
 
   const handleToggleProduct = async (p: ProductResponse) => {
-    await updateProduct(p.id, { name: p.name, unit: p.unit, isActive: !p.isActive });
+    await updateProduct(p.id, { name: p.name, skuCode: p.skuCode, unit: p.unit, isActive: !p.isActive });
     loadAll();
+  };
+
+  const openEditProduct = (p: ProductResponse) => {
+    setEditingProduct(p);
+    setEditName(p.name);
+    setEditSku(p.skuCode);
+    setEditUnit(p.unit);
+    setEditError(null);
+  };
+
+  const handleSaveProductEdit = async () => {
+    if (!editingProduct) return;
+    if (!editName.trim() || !editSku.trim() || !editUnit.trim()) {
+      setEditError('กรอกข้อมูลให้ครบ');
+      return;
+    }
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      await updateProduct(editingProduct.id, {
+        name: editName.trim(),
+        skuCode: editSku.trim(),
+        unit: editUnit.trim(),
+        isActive: editingProduct.isActive,
+      });
+      setEditingProduct(null);
+      loadAll();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setEditError(msg ?? 'บันทึกไม่สำเร็จ');
+    } finally {
+      setEditSubmitting(false);
+    }
   };
 
   const handleAddPlatform = async () => {
@@ -135,19 +177,38 @@ export function AdminPage() {
         </Box>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
-            <TableHead><TableRow><TableCell>ชื่อ</TableCell><TableCell>SKU</TableCell><TableCell>หน่วย</TableCell><TableCell align="right">เปิดใช้งาน</TableCell></TableRow></TableHead>
+            <TableHead><TableRow><TableCell>ชื่อ</TableCell><TableCell>SKU</TableCell><TableCell>หน่วย</TableCell><TableCell align="right">แก้ไข</TableCell><TableCell align="right">เปิดใช้งาน</TableCell></TableRow></TableHead>
             <TableBody>
               {products.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.skuCode}</TableCell>
                   <TableCell>{p.unit}</TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openEditProduct(p)} aria-label="แก้ไขสินค้า">
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
                   <TableCell align="right"><Switch checked={p.isActive} onChange={() => handleToggleProduct(p)} size="small" /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
+
+        <Dialog open={editingProduct !== null} onClose={() => setEditingProduct(null)} maxWidth="xs" fullWidth>
+          <DialogTitle>แก้ไขสินค้า</DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {editError && <Alert severity="error">{editError}</Alert>}
+            <TextField label="ชื่อสินค้า" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
+            <TextField label="SKU" value={editSku} onChange={(e) => setEditSku(e.target.value)} />
+            <TextField label="หน่วย" value={editUnit} onChange={(e) => setEditUnit(e.target.value)} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditingProduct(null)}>ยกเลิก</Button>
+            <Button variant="contained" onClick={handleSaveProductEdit} disabled={editSubmitting}>บันทึก</Button>
+          </DialogActions>
+        </Dialog>
       </TabPanel>
 
       <TabPanel active={tab === 1}>

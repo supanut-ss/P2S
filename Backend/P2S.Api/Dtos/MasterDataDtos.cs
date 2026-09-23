@@ -2,7 +2,7 @@ namespace P2S.Api.Dtos;
 
 public record ProductResponse(int Id, string Name, string SkuCode, string Unit, bool IsActive);
 public record CreateProductRequest(string Name, string SkuCode, string Unit);
-public record UpdateProductRequest(string Name, string Unit, bool IsActive);
+public record UpdateProductRequest(string Name, string SkuCode, string Unit, bool IsActive);
 
 public record PlatformResponse(int Id, string Code, string Name, bool IsActive);
 public record CreatePlatformRequest(string Code, string Name);

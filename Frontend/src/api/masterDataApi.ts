@@ -11,7 +11,7 @@ export async function createProduct(payload: { name: string; skuCode: string; un
   return data;
 }
 
-export async function updateProduct(id: number, payload: { name: string; unit: string; isActive: boolean }): Promise<ProductResponse> {
+export async function updateProduct(id: number, payload: { name: string; skuCode: string; unit: string; isActive: boolean }): Promise<ProductResponse> {
   const { data } = await apiClient.put<ProductResponse>(`/api/products/${id}`, payload);
   return data;
 }

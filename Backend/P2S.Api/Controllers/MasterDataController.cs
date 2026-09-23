@@ -56,7 +56,13 @@ public class MasterDataController : ControllerBase
         var product = await _db.Products.FindAsync([id], ct);
         if (product is null) return NotFound();
 
+        if (request.SkuCode != product.SkuCode && await _db.Products.AnyAsync(p => p.Id != id && p.SkuCode == request.SkuCode, ct))
+        {
+            return Conflict(new { message = $"SKU '{request.SkuCode}' มีอยู่แล้ว" });
+        }
+
         product.Name = request.Name;
+        product.SkuCode = request.SkuCode;
         product.Unit = request.Unit;
         product.IsActive = request.IsActive;
         await _db.SaveChangesAsync(ct);
