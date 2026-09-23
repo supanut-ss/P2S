@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -31,6 +31,8 @@ export function OrdersPage() {
   const [formItems, setFormItems] = useState<CreateOrderItemInput[]>([{ productId: 0, qty: 1, unitPrice: 0 }]);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const busyOrdersRef = useRef(new Set<number>());
+  const [busyOrders, setBusyOrders] = useState<Set<number>>(new Set());
 
   const load = async () => {
     setLoading(true);
@@ -92,11 +94,17 @@ export function OrdersPage() {
   };
 
   const handleMarkPaid = async (id: number) => {
+    if (busyOrdersRef.current.has(id)) return;
+    busyOrdersRef.current.add(id);
+    setBusyOrders(new Set(busyOrdersRef.current));
     try {
       await markPaid(id);
       await load();
     } catch {
       setError('mark-paid ไม่สำเร็จ');
+    } finally {
+      busyOrdersRef.current.delete(id);
+      setBusyOrders(new Set(busyOrdersRef.current));
     }
   };
 
@@ -152,7 +160,7 @@ export function OrdersPage() {
                 <TableCell>{new Date(o.orderedAt).toLocaleDateString('th-TH')}</TableCell>
                 <TableCell align="right">
                   {o.status === 'Ordered' && (
-                    <Button size="small" onClick={() => handleMarkPaid(o.id)}>จ่ายแล้ว</Button>
+                    <Button size="small" disabled={busyOrders.has(o.id)} onClick={() => handleMarkPaid(o.id)}>จ่ายแล้ว</Button>
                   )}
                 </TableCell>
               </TableRow>
@@ -181,7 +189,7 @@ export function OrdersPage() {
               <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
             </Box>
             {o.status === 'Ordered' && (
-              <Button fullWidth variant="outlined" sx={{ mt: 2, minHeight: 44 }} onClick={() => handleMarkPaid(o.id)}>จ่ายแล้ว</Button>
+              <Button fullWidth variant="outlined" disabled={busyOrders.has(o.id)} sx={{ mt: 2, minHeight: 44 }} onClick={() => handleMarkPaid(o.id)}>{busyOrders.has(o.id) ? 'กำลังบันทึก…' : 'จ่ายแล้ว'}</Button>
             )}
           </Paper>
         ))}

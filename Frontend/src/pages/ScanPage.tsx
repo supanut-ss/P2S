@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, LinearProgress, Stack, TextField, Typography,
 } from '@mui/material';
@@ -31,6 +31,20 @@ export function ScanPage() {
   const [scanTarget, setScanTarget] = useState<'search' | number | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PendingOrderItemResponse | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const busyItemsRef = useRef(new Set<number>());
+  const [busyItems, setBusyItems] = useState<Set<number>>(new Set());
+
+  const beginItemAction = (id: number) => {
+    if (busyItemsRef.current.has(id)) return false;
+    busyItemsRef.current.add(id);
+    setBusyItems(new Set(busyItemsRef.current));
+    return true;
+  };
+
+  const endItemAction = (id: number) => {
+    busyItemsRef.current.delete(id);
+    setBusyItems(new Set(busyItemsRef.current));
+  };
 
   const load = async (query?: string) => {
     setLoading(true);
@@ -57,44 +71,56 @@ export function ScanPage() {
   }, []);
 
   const handleSaveTracking = async (item: PendingOrderItemResponse) => {
+    if (!beginItemAction(item.orderItemId)) return;
     const value = trackingInputs[item.orderItemId]?.trim();
-    if (!value) return;
+    if (!value) {
+      endItemAction(item.orderItemId);
+      return;
+    }
     try {
       await setTrackingApi(item.orderItemId, value);
       setMessage(`บันทึกเลข tracking ของ ${item.productName} แล้ว`);
-      load(search);
+      await load(search);
     } catch {
       setError('บันทึกเลข tracking ไม่สำเร็จ');
+    } finally {
+      endItemAction(item.orderItemId);
     }
   };
 
   const handleConfirm = async (item: PendingOrderItemResponse) => {
+    if (!beginItemAction(item.orderItemId)) return;
     const scannedValue = trackingInputs[item.orderItemId]?.trim();
     if (!scannedValue) {
       setError('กรอกหรือสแกนเลข tracking ก่อนยืนยันรับของ');
+      endItemAction(item.orderItemId);
       return;
     }
     const matchMethod: DeliveryMatchMethod = trackingSources[item.orderItemId] === 'scanned' ? 'Barcode' : 'ManualTrackingEntry';
     try {
       await confirmArrived(item.orderItemId, scannedValue, matchMethod);
       setMessage(`รับของ ${item.productName} เข้าคลังแล้ว`);
-      load(search);
+      await load(search);
     } catch {
       setError('ยืนยันรับของไม่สำเร็จ');
+    } finally {
+      endItemAction(item.orderItemId);
     }
   };
 
   const handleCancel = async (item: PendingOrderItemResponse) => {
+    if (!beginItemAction(item.orderItemId)) return;
     setCancelling(true);
     try {
       await cancelOrderItem(item.orderItemId, 'ร้านยกเลิก/ของไม่มา');
       setMessage(`ยกเลิก ${item.productName} แล้ว`);
       setCancelTarget(null);
-      load(search);
+      await load(search);
     } catch {
       setError('ยกเลิกไม่สำเร็จ');
     } finally {
       setCancelling(false);
+      endItemAction(item.orderItemId);
     }
   };
 
@@ -136,6 +162,7 @@ export function ScanPage() {
       <Stack spacing={2}>
         {items.map((item) => (
           <Card key={item.orderItemId} variant="outlined">
+            {busyItems.has(item.orderItemId) && <LinearProgress aria-label={`กำลังบันทึกรายการ ${item.productName}`} />}
             <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
                 <Typography sx={{ fontWeight: 700 }}>{item.productName}</Typography>
@@ -147,6 +174,7 @@ export function ScanPage() {
                 <TextField
                   label="เลข tracking (สแกน/กรอกเอง)"
                   size="small"
+                  disabled={busyItems.has(item.orderItemId)}
                   value={trackingInputs[item.orderItemId] ?? ''}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -155,12 +183,12 @@ export function ScanPage() {
                   }}
                   sx={{ minWidth: 0 }}
                 />
-                <IconButton color="primary" onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกนบาร์โค้ด" sx={{ minWidth: 44, minHeight: 44 }}>
+                <IconButton color="primary" disabled={busyItems.has(item.orderItemId)} onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกนบาร์โค้ด" sx={{ minWidth: 44, minHeight: 44 }}>
                   <CameraAltIcon fontSize="small" />
                 </IconButton>
-                <Button size="small" variant="outlined" onClick={() => handleSaveTracking(item)} sx={{ minHeight: 40, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>บันทึกเลข tracking</Button>
-                <Button size="small" variant="contained" onClick={() => handleConfirm(item)} sx={{ minHeight: 40 }}>ยืนยันรับของ</Button>
-                <Button size="small" color="error" onClick={() => setCancelTarget(item)} sx={{ minHeight: 44 }}>ยกเลิก/ไม่มา</Button>
+                <Button size="small" variant="outlined" disabled={busyItems.has(item.orderItemId)} onClick={() => handleSaveTracking(item)} sx={{ minHeight: 44, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>บันทึกเลข tracking</Button>
+                <Button size="small" variant="contained" disabled={busyItems.has(item.orderItemId)} onClick={() => handleConfirm(item)} sx={{ minHeight: 44 }}>ยืนยันรับของ</Button>
+                <Button size="small" color="error" disabled={busyItems.has(item.orderItemId)} onClick={() => setCancelTarget(item)} sx={{ minHeight: 44 }}>ยกเลิก/ไม่มา</Button>
               </Box>
             </CardContent>
           </Card>
