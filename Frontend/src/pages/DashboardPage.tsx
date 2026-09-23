@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, CardContent, Grid, Typography } from '@mui/material';
+import { Alert, Button, Card, CardContent, Grid, LinearProgress, Typography } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
 import { getLatestSnapshot, runSnapshotNow } from '../api/financeApi';
 import type { DailyFinanceSnapshotResponse } from '../types/models';
@@ -54,25 +54,26 @@ export function DashboardPage() {
         subtitle={snapshot ? `ข้อมูล ณ วันที่ ${snapshot.snapshotDate}` : 'สรุปวันนี้ — ยอดสั่ง/ยอดเบิก/ของค้างมา/มูลค่าที่เข้าคลัง/เคสยกเลิก'}
         action={
           user?.role === 'admin' ? (
-            <Button variant="outlined" size="small" onClick={handleRunNow} disabled={loading}>
+            <Button variant="outlined" size="small" onClick={handleRunNow} disabled={loading} sx={{ minHeight: 40 }}>
               รันสรุปยอดตอนนี้
             </Button>
           ) : undefined
         }
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {loading && <LinearProgress aria-label="กำลังโหลดภาพรวม" sx={{ mb: 2 }} />}
       {!loading && !snapshot && !error && (
         <Alert severity="info" sx={{ mb: 2 }}>ยังไม่เคยรันสรุปยอด — ระบบจะรันอัตโนมัติทุกวัน 23:59</Alert>
       )}
       <Grid container spacing={2}>
         {stats.map((stat) => (
           <Grid key={stat.label} size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent sx={{ p: { xs: 2.5, sm: 3 }, '&:last-child': { pb: { xs: 2.5, sm: 3 } } }}>
+                <Typography variant="body2" color="text.secondary">
                   {stat.label}
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5 }}>
+                <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.75, fontSize: { xs: '1.75rem', sm: '2rem' }, overflowWrap: 'anywhere', fontVariantNumeric: 'tabular-nums' }}>
                   {stat.value}
                 </Typography>
               </CardContent>

@@ -69,6 +69,23 @@ public class MasterDataController : ControllerBase
         return Ok(new ProductResponse(product.Id, product.Name, product.SkuCode, product.Unit, product.IsActive));
     }
 
+    [HttpDelete("products/{id:int}")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> DeleteProduct(int id, CancellationToken ct)
+    {
+        var product = await _db.Products.FindAsync([id], ct);
+        if (product is null) return NotFound();
+
+        bool hasUsage = await _db.OrderItems.AnyAsync(o => o.ProductId == id, ct)
+                     || await _db.InventoryItems.AnyAsync(i => i.ProductId == id, ct);
+        if (hasUsage)
+            return Conflict(new { message = "ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีข้อมูลอ้างอิงอยู่ (ลองปิดใช้งานแทน)" });
+
+        _db.Products.Remove(product);
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     // ---- Platforms ----
 
     [HttpGet("platforms")]
@@ -109,6 +126,22 @@ public class MasterDataController : ControllerBase
         return Ok(new PlatformResponse(platform.Id, platform.Code, platform.Name, platform.IsActive));
     }
 
+    [HttpDelete("platforms/{id:int}")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> DeletePlatform(int id, CancellationToken ct)
+    {
+        var platform = await _db.Platforms.FindAsync([id], ct);
+        if (platform is null) return NotFound();
+
+        bool hasUsage = await _db.PurchaseOrders.AnyAsync(o => o.PlatformId == id, ct);
+        if (hasUsage)
+            return Conflict(new { message = "ไม่สามารถลบ platform นี้ได้ เนื่องจากมีออเดอร์อ้างอิงอยู่ (ลองปิดใช้งานแทน)" });
+
+        _db.Platforms.Remove(platform);
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     // ---- Withdrawal reasons ----
 
     [HttpGet("withdrawal-reasons")]
@@ -142,6 +175,22 @@ public class MasterDataController : ControllerBase
         reason.IsActive = request.IsActive;
         await _db.SaveChangesAsync(ct);
         return Ok(new WithdrawalReasonResponse(reason.Id, reason.Name, reason.IsActive));
+    }
+
+    [HttpDelete("withdrawal-reasons/{id:int}")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> DeleteWithdrawalReason(int id, CancellationToken ct)
+    {
+        var reason = await _db.WithdrawalReasons.FindAsync([id], ct);
+        if (reason is null) return NotFound();
+
+        bool hasUsage = await _db.InventoryWithdrawals.AnyAsync(w => w.WithdrawalReasonId == id, ct);
+        if (hasUsage)
+            return Conflict(new { message = "ไม่สามารถลบเหตุผลนี้ได้ เนื่องจากมีการเบิกของอ้างอิงอยู่ (ลองปิดใช้งานแทน)" });
+
+        _db.WithdrawalReasons.Remove(reason);
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
     }
 
     // ---- Users ----
@@ -197,5 +246,25 @@ public class MasterDataController : ControllerBase
         user.CardLast4 = request.CardLast4;
         await _db.SaveChangesAsync(ct);
         return Ok(new UserResponse(user.Id, user.Username, user.FullName, user.Role.Name, user.IsActive, user.CardLast4));
+    }
+
+    [HttpDelete("users/{id:int}")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> DeleteUser(int id, CancellationToken ct)
+    {
+        var user = await _db.Users.FindAsync([id], ct);
+        if (user is null) return NotFound();
+
+        bool hasUsage = await _db.PurchaseOrders.AnyAsync(o => o.OrderedByUserId == id, ct)
+                     || await _db.Deliveries.AnyAsync(d => d.ScannedByUserId == id, ct)
+                     || await _db.Reimbursements.AnyAsync(r => r.RequestedByUserId == id, ct)
+                     || await _db.InventoryWithdrawals.AnyAsync(w => w.WithdrawnByUserId == id, ct)
+                     || await _db.StaffLedgerEntries.AnyAsync(e => e.UserId == id, ct);
+        if (hasUsage)
+            return Conflict(new { message = "ไม่สามารถลบผู้ใช้นี้ได้ เนื่องจากมีข้อมูลอ้างอิงอยู่ (ลองปิดใช้งานแทน)" });
+
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
     }
 }

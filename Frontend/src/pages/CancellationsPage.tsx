@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Button, MenuItem, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TextField,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
@@ -17,13 +17,19 @@ export function CancellationsPage() {
   const [cancellations, setCancellations] = useState<CancellationResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('RefundPending');
   const [error, setError] = useState<string | null>(null);
+  const [resolveTarget, setResolveTarget] = useState<{ id: number; productName: string; outcome: 'Refunded' | 'Adjusted' } | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    setLoading(true);
     setError(null);
     try {
       setCancellations(await listCancellations(statusFilter || undefined));
     } catch {
       setError('โหลดรายการยกเลิกไม่สำเร็จ');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,26 +39,32 @@ export function CancellationsPage() {
   }, [statusFilter]);
 
   const handleResolve = async (id: number, outcome: 'Refunded' | 'Adjusted') => {
+    if (resolving) return;
+    setResolving(true);
     try {
       await resolveCancellation(id, outcome);
+      setResolveTarget(null);
       await load();
     } catch {
       setError('บันทึกผลไม่สำเร็จ');
+    } finally {
+      setResolving(false);
     }
   };
 
   return (
     <>
-      <PageHeader title="Cancellation report" subtitle="รายการรอ action ฝ่ายการเงิน (ของที่ไม่เข้าคลังแต่จ่าย/เบิกไปแล้ว)" />
+      <PageHeader title="รายการยกเลิก" subtitle="รายการรอการจัดการของฝ่ายการเงิน" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {loading && <LinearProgress aria-label="กำลังโหลดรายการยกเลิก" sx={{ mb: 2 }} />}
 
       <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ mb: 2, minWidth: 180 }}>
         <MenuItem value="">ทุกสถานะ</MenuItem>
         {Object.entries(cancellationStatusLabel).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
       </TextField>
 
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -75,19 +87,56 @@ export function CancellationsPage() {
                 <TableCell align="right">
                   {canResolve && c.status === 'RefundPending' && c.reimbursementId !== null && (
                     <>
-                      <Button size="small" onClick={() => handleResolve(c.id, 'Refunded')}>คืนเงินแล้ว</Button>
-                      <Button size="small" onClick={() => handleResolve(c.id, 'Adjusted')}>ปรับยอดแทน</Button>
+                      <Button size="small" onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Refunded' })}>คืนเงินแล้ว</Button>
+                      <Button size="small" onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Adjusted' })}>ปรับยอดแทน</Button>
                     </>
                   )}
                 </TableCell>
               </TableRow>
             ))}
-            {cancellations.length === 0 && (
+            {!loading && cancellations.length === 0 && (
               <TableRow><TableCell colSpan={6} align="center">ไม่มีรายการ</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
+        {cancellations.map((c) => (
+          <Paper key={c.id} variant="outlined" sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{c.productName}</Typography>
+                <Typography variant="body2" color="text.secondary">รายการ #{c.id}</Typography>
+              </Box>
+              <StatusBadge status={c.status} label={cancellationStatusLabel[c.status] ?? c.status} />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">Reimbursement</Typography>
+              <Typography variant="body2" sx={{ textAlign: 'right', overflowWrap: 'anywhere', minWidth: 0 }}>{c.reimbursementId ?? '— (ยังไม่เคยเบิก ไม่ต้องคืนเงิน)'}</Typography>
+              <Typography variant="body2" color="text.secondary">วันที่ยกเลิก</Typography>
+              <Typography variant="body2">{new Date(c.flaggedAt).toLocaleDateString('th-TH')}</Typography>
+            </Box>
+            {canResolve && c.status === 'RefundPending' && c.reimbursementId !== null && (
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mt: 2 }}>
+                <Button variant="outlined" sx={{ minHeight: 44 }} onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Refunded' })}>คืนเงินแล้ว</Button>
+                <Button variant="outlined" sx={{ minHeight: 44 }} onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Adjusted' })}>ปรับยอดแทน</Button>
+              </Box>
+            )}
+          </Paper>
+        ))}
+        {!loading && cancellations.length === 0 && (
+          <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีรายการ</Paper>
+        )}
+      </Box>
+      <Dialog open={resolveTarget !== null} onClose={() => !resolving && setResolveTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>ยืนยันผลการยกเลิก</DialogTitle>
+        <DialogContent><DialogContentText>บันทึก {resolveTarget?.productName} เป็น “{resolveTarget?.outcome === 'Refunded' ? 'คืนเงินแล้ว' : 'ปรับยอดแทน'}”?</DialogContentText></DialogContent>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
+          <Button onClick={() => setResolveTarget(null)} disabled={resolving}>กลับ</Button>
+          <Button variant="contained" disabled={resolving} onClick={() => resolveTarget && handleResolve(resolveTarget.id, resolveTarget.outcome)}>ยืนยัน</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

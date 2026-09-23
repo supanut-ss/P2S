@@ -61,6 +61,22 @@ export async function updateUser(id: number, payload: { fullName: string; isActi
   return data;
 }
 
+export async function deleteProduct(id: number): Promise<void> {
+  await apiClient.delete(`/api/products/${id}`);
+}
+
+export async function deletePlatform(id: number): Promise<void> {
+  await apiClient.delete(`/api/platforms/${id}`);
+}
+
+export async function deleteWithdrawalReason(id: number): Promise<void> {
+  await apiClient.delete(`/api/withdrawal-reasons/${id}`);
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await apiClient.delete(`/api/users/${id}`);
+}
+
 export async function adminResetPassword(userId: number, newPassword: string): Promise<void> {
   await apiClient.post('/api/auth/admin-reset-password', { userId, newPassword });
 }

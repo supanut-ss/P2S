@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Typography,
 } from '@mui/material';
@@ -105,15 +105,16 @@ export function OrdersPage() {
   return (
     <>
       <PageHeader
-        title="Order list"
-        subtitle="filter platform/user/status, ค้นหาเลขออเดอร์"
+        title="รายการออเดอร์"
+        subtitle="กรองสถานะหรือค้นหาเลขออเดอร์"
         action={<Button variant="contained" startIcon={<AddIcon />} onClick={openDialog}>สั่งของใหม่</Button>}
       />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {loading && <LinearProgress aria-label="กำลังโหลดออเดอร์" sx={{ mb: 2 }} />}
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ minWidth: 180 }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', '& > .MuiFormControl-root': { flex: { xs: '1 1 100%', sm: '0 1 220px' } } }}>
+        <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <MenuItem value="">ทุกสถานะ</MenuItem>
           {Object.entries(purchaseOrderStatusLabel).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
         </TextField>
@@ -124,10 +125,10 @@ export function OrdersPage() {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
         />
-        <Button variant="outlined" onClick={handleSearch}>ค้นหา</Button>
+        <Button variant="outlined" onClick={handleSearch} sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: 44 }}>ค้นหา</Button>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -163,7 +164,33 @@ export function OrdersPage() {
         </Table>
       </TableContainer>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
+        {orders.map((o) => (
+          <Paper key={o.id} variant="outlined" sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{o.platformOrderNo}</Typography>
+                <Typography variant="body2" color="text.secondary">{o.platformCode} · {o.orderedByUsername}</Typography>
+              </Box>
+              <StatusBadge status={o.status} label={purchaseOrderStatusLabel[o.status] ?? o.status} />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">ยอดรวม</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.totalAmount)}</Typography>
+              <Typography variant="body2" color="text.secondary">วันที่สั่ง</Typography>
+              <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
+            </Box>
+            {o.status === 'Ordered' && (
+              <Button fullWidth variant="outlined" sx={{ mt: 2, minHeight: 44 }} onClick={() => handleMarkPaid(o.id)}>จ่ายแล้ว</Button>
+            )}
+          </Paper>
+        ))}
+        {!loading && orders.length === 0 && (
+          <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีออเดอร์</Paper>
+        )}
+      </Box>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
         <DialogTitle>สั่งของใหม่</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {formError && <Alert severity="error">{formError}</Alert>}
@@ -174,13 +201,13 @@ export function OrdersPage() {
 
           <Typography variant="subtitle2">รายการสินค้า</Typography>
           {formItems.map((item, idx) => (
-            <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <TextField select label="สินค้า" size="small" value={item.productId || ''} onChange={(e) => updateItem(idx, { productId: Number(e.target.value) })} sx={{ flex: 2 }}>
+            <Box key={idx} sx={{ display: 'flex', flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1, alignItems: 'center', border: { xs: '1px solid', sm: 0 }, borderColor: 'divider', borderRadius: 2, p: { xs: 1.5, sm: 0 } }}>
+              <TextField select label="สินค้า" size="small" value={item.productId || ''} onChange={(e) => updateItem(idx, { productId: Number(e.target.value) })} sx={{ flex: { xs: '1 1 100%', sm: 2 } }}>
                 {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
               </TextField>
-              <TextField label="จำนวน" size="small" type="number" value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} sx={{ flex: 1 }} />
-              <TextField label="ราคา/ชิ้น" size="small" type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })} sx={{ flex: 1 }} />
-              <IconButton size="small" onClick={() => removeItem(idx)} disabled={formItems.length === 1}>
+              <TextField label="จำนวน" size="small" type="number" value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} sx={{ flex: 1, minWidth: 0 }} />
+              <TextField label="ราคา/ชิ้น" size="small" type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })} sx={{ flex: 1, minWidth: 0 }} />
+              <IconButton size="small" aria-label={`ลบรายการสินค้า ${idx + 1}`} onClick={() => removeItem(idx)} disabled={formItems.length === 1} sx={{ minWidth: 44, minHeight: 44 }}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>
@@ -188,7 +215,7 @@ export function OrdersPage() {
           <Button size="small" startIcon={<AddIcon />} onClick={addItem} sx={{ alignSelf: 'flex-start' }}>เพิ่มรายการ</Button>
           <Typography variant="body2" sx={{ fontWeight: 700 }}>ยอดรวม: {thb.format(total)}</Typography>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
           <Button onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
           <Button variant="contained" onClick={handleCreate} disabled={submitting}>บันทึก</Button>
         </DialogActions>

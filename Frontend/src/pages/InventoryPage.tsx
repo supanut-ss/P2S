@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem,
-  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, MenuItem,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
@@ -80,6 +80,7 @@ export function InventoryPage() {
       <PageHeader title="Inventory list" subtitle="รายการของในคลัง (sku, qty_on_hand, cost/unit, received_at) พร้อมปุ่มเบิกออก" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {loading && <LinearProgress aria-label="กำลังโหลดคลังสินค้า" sx={{ mb: 2 }} />}
 
       <Box sx={{ mb: 2 }}>
         <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ minWidth: 180 }}>
@@ -88,7 +89,7 @@ export function InventoryPage() {
         </TextField>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -126,7 +127,35 @@ export function InventoryPage() {
         </Table>
       </TableContainer>
 
-      <Dialog open={target !== null} onClose={() => setTarget(null)} maxWidth="xs" fullWidth>
+      <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
+        {items.map((item) => (
+          <Paper key={item.id} variant="outlined" sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>SKU: {item.skuCode}</Typography>
+              </Box>
+              <StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">รับเข้า / คงเหลือ</Typography>
+              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{item.qtyReceived} / {item.qtyOnHand}</Typography>
+              <Typography variant="body2" color="text.secondary">ต้นทุน/ชิ้น</Typography>
+              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{thb.format(item.costPerUnit)}</Typography>
+              <Typography variant="body2" color="text.secondary">รับเข้าเมื่อ</Typography>
+              <Typography variant="body2">{new Date(item.receivedAt).toLocaleDateString('th-TH')}</Typography>
+            </Box>
+            {item.status === 'InStock' && (
+              <Button fullWidth variant="outlined" sx={{ mt: 2, minHeight: 44 }} onClick={() => openWithdraw(item)}>เบิกออก</Button>
+            )}
+          </Paper>
+        ))}
+        {!loading && items.length === 0 && (
+          <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีของในคลัง</Paper>
+        )}
+      </Box>
+
+      <Dialog open={target !== null} onClose={() => setTarget(null)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
         <DialogTitle>เบิกของออก — {target?.productName}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {formError && <Alert severity="error">{formError}</Alert>}
@@ -142,7 +171,7 @@ export function InventoryPage() {
           </TextField>
           <TextField label="หมายเหตุ (ถ้ามี)" value={note} onChange={(e) => setNote(e.target.value)} multiline rows={2} />
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 }, px: { xs: 2, sm: 1 }, display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, '& > button': { width: { xs: '100%', sm: 'auto' }, minHeight: 44 } }}>
           <Button onClick={() => setTarget(null)}>ยกเลิก</Button>
           <Button variant="contained" onClick={handleWithdraw} disabled={submitting}>เบิกออก</Button>
         </DialogActions>

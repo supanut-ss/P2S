@@ -2,6 +2,8 @@ import { useState } from 'react';
 import {
   AppBar,
   Avatar,
+  BottomNavigation,
+  BottomNavigationAction,
   Box,
   Drawer,
   IconButton,
@@ -12,7 +14,6 @@ import {
   Menu,
   MenuItem,
   Toolbar,
-  Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -24,29 +25,35 @@ import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { tokens } from '../theme/tokens';
 
 const DRAWER_WIDTH = 240;
+const TABLET_RAIL_WIDTH = 88;
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: <DashboardIcon /> },
-  { to: '/orders', label: 'Order list', icon: <ListAltIcon /> },
-  { to: '/reimbursements', label: 'Reimbursement queue', icon: <PaymentsIcon /> },
-  { to: '/scan', label: 'สแกนรับของ', icon: <QrCodeScannerIcon /> },
-  { to: '/inventory', label: 'Inventory list', icon: <Inventory2Icon /> },
-  { to: '/cancellations', label: 'Cancellation report', icon: <CancelIcon /> },
-  { to: '/admin', label: 'Master data', icon: <AdminPanelSettingsIcon /> },
+  { to: '/', label: 'ภาพรวม', icon: <DashboardIcon /> },
+  { to: '/orders', label: 'ออเดอร์', icon: <ListAltIcon /> },
+  { to: '/reimbursements', label: 'เบิกเงิน', icon: <PaymentsIcon /> },
+  { to: '/scan', label: 'รับของ', icon: <QrCodeScannerIcon /> },
+  { to: '/inventory', label: 'คลังสินค้า', icon: <Inventory2Icon /> },
+  { to: '/cancellations', label: 'ยกเลิก', icon: <CancelIcon /> },
+  { to: '/admin', label: 'ข้อมูลหลัก', icon: <AdminPanelSettingsIcon /> },
 ];
 
 export function AppLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const primaryItems = navItems.slice(0, 4);
+  const activeMobileItem = primaryItems.find((item) => item.to === location.pathname)?.to ?? 'more';
 
   const handleLogout = () => {
     setMenuAnchor(null);
@@ -63,9 +70,12 @@ export function AppLayout() {
           to={item.to}
           end={item.to === '/'}
           onClick={() => setMobileOpen(false)}
+          aria-label={isTablet ? item.label : undefined}
           sx={{
             mx: 1,
+            minHeight: 48,
             borderRadius: `${tokens.radius.md}px`,
+            ...(isTablet && { flexDirection: 'column', px: 0.5, py: 1, textAlign: 'center', gap: 0.25 }),
             '&.active': {
               backgroundColor: tokens.color.primary,
               color: tokens.color.primaryForeground,
@@ -73,15 +83,15 @@ export function AppLayout() {
             },
           }}
         >
-          <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-          <ListItemText primary={item.label} />
+          <ListItemIcon sx={{ minWidth: isTablet ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+          <ListItemText primary={item.label} sx={isTablet ? { m: 0, '& .MuiTypography-root': { fontSize: 12, lineHeight: 1.2, overflowWrap: 'anywhere' } } : undefined} />
         </ListItemButton>
       ))}
     </List>
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
       <AppBar
         position="fixed"
         elevation={0}
@@ -92,23 +102,17 @@ export function AppLayout() {
           borderBottom: `1px solid ${tokens.color.border}`,
         }}
       >
-        <Toolbar>
-          {isMobile && (
-            <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 1 }}>
-              <MenuIcon />
-            </IconButton>
-          )}
+        <Toolbar sx={{ pt: { xs: 'env(safe-area-inset-top)', md: 0 }, minHeight: { xs: 60, md: 64 } }}>
+          {isMobile && <IconButton edge="start" onClick={() => setMobileOpen(true)} aria-label="เปิดเมนูทั้งหมด" sx={{ mr: 1, minWidth: 48, minHeight: 48 }}><MenuIcon /></IconButton>}
           <Box
             component="img"
-            src="/logo.webp"
+            src="/logo.jpg"
             alt="Arbify"
-            sx={{ width: 28, height: 28, mr: 1.5, objectFit: 'contain' }}
+            sx={{ width: 44, height: 44, objectFit: 'contain', borderRadius: '8px' }}
           />
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700, fontSize: '1.125rem' }}>
-            Arbify
-          </Typography>
-          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: tokens.color.primary, color: tokens.color.primaryForeground, fontSize: '0.875rem' }}>
+          <Box sx={{ flexGrow: 1 }} />
+          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="เมนูบัญชีผู้ใช้" sx={{ minWidth: 48, minHeight: 48 }}>
+            <Avatar sx={{ width: 38, height: 38, bgcolor: tokens.color.primary, color: tokens.color.primaryForeground, fontSize: '1rem' }}>
               {user?.fullName?.charAt(0) ?? '?'}
             </Avatar>
           </IconButton>
@@ -127,16 +131,16 @@ export function AppLayout() {
           ModalProps={{ keepMounted: true }}
           sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
         >
-          <Toolbar />
+          <Toolbar sx={{ pt: 'env(safe-area-inset-top)' }} />
           {drawerContent}
         </Drawer>
       ) : (
         <Drawer
           variant="permanent"
           sx={{
-            width: DRAWER_WIDTH,
+            width: isTablet ? TABLET_RAIL_WIDTH : DRAWER_WIDTH,
             flexShrink: 0,
-            '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', borderRight: `1px solid ${tokens.color.border}` },
+            '& .MuiDrawer-paper': { width: isTablet ? TABLET_RAIL_WIDTH : DRAWER_WIDTH, boxSizing: 'border-box', borderRight: `1px solid ${tokens.color.border}`, overflowX: 'hidden' },
           }}
         >
           <Toolbar />
@@ -144,10 +148,24 @@ export function AppLayout() {
         </Drawer>
       )}
 
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, width: { md: `calc(100% - ${DRAWER_WIDTH}px)` } }}>
-        <Toolbar />
-        <Outlet />
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${TABLET_RAIL_WIDTH}px)`, lg: `calc(100% - ${DRAWER_WIDTH}px)` }, pb: { xs: 'calc(92px + env(safe-area-inset-bottom))', md: 4 } }}>
+        <Toolbar sx={{ pt: { xs: 'env(safe-area-inset-top)', md: 0 }, minHeight: { xs: 60, md: 64 } }} />
+        <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1440, px: { xs: 2, sm: 3, md: 3, lg: 4 }, pt: { xs: 2, md: 3 } }}>
+          <Outlet />
+        </Box>
       </Box>
+      {isMobile && (
+        <BottomNavigation
+          component="nav"
+          aria-label="เมนูหลัก"
+          value={activeMobileItem}
+          showLabels
+          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: `1px solid ${tokens.color.border}`, zIndex: theme.zIndex.appBar, bgcolor: tokens.color.white, '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.625rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
+        >
+          {primaryItems.map((item) => <BottomNavigationAction key={item.to} value={item.to} label={item.label} icon={item.icon} onClick={() => navigate(item.to)} />)}
+          <BottomNavigationAction value="more" label="เพิ่มเติม" icon={<MoreHorizIcon />} onClick={() => setMobileOpen(true)} />
+        </BottomNavigation>
+      )}
     </Box>
   );
 }

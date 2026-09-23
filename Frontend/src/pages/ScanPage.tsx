@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, IconButton, Stack, TextField, Typography,
+  Alert, Box, Button, Card, CardContent, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, LinearProgress, Stack, TextField, Typography,
 } from '@mui/material';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { PageHeader } from '../components/PageHeader';
@@ -29,6 +29,8 @@ export function ScanPage() {
   // null = closed, 'search' = scanning to fill the top search box, a number = scanning to
   // fill that order item's tracking field.
   const [scanTarget, setScanTarget] = useState<'search' | number | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<PendingOrderItemResponse | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const load = async (query?: string) => {
     setLoading(true);
@@ -83,12 +85,16 @@ export function ScanPage() {
   };
 
   const handleCancel = async (item: PendingOrderItemResponse) => {
+    setCancelling(true);
     try {
       await cancelOrderItem(item.orderItemId, 'ร้านยกเลิก/ของไม่มา');
       setMessage(`ยกเลิก ${item.productName} แล้ว`);
+      setCancelTarget(null);
       load(search);
     } catch {
       setError('ยกเลิกไม่สำเร็จ');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -109,33 +115,35 @@ export function ScanPage() {
       <PageHeader title="สแกนรับของ" subtitle="สแกนบาร์โค้ด/เลข tracking ของร้าน แล้ว confirm รับของ — ถ้าสแกนไม่ติด ค้นด้วยเลขออเดอร์แทนได้" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {loading && <LinearProgress aria-label="กำลังโหลดรายการรับของ" sx={{ mb: 2 }} />}
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message}</Alert>}
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'minmax(0, 1fr) auto auto' }, gap: 1, mb: 3 }}>
         <TextField
           label="ค้นหาเลขออเดอร์ / tracking / ชื่อสินค้า"
           fullWidth
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && load(search)}
+          sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
         />
-        <Button variant="outlined" startIcon={<CameraAltIcon />} onClick={() => setScanTarget('search')} sx={{ whiteSpace: 'nowrap' }}>
+        <Button variant="outlined" startIcon={<CameraAltIcon />} onClick={() => setScanTarget('search')} sx={{ whiteSpace: 'nowrap', minHeight: 44 }}>
           สแกนกล้อง
         </Button>
-        <Button variant="outlined" onClick={() => load(search)}>ค้นหา</Button>
+        <Button variant="outlined" onClick={() => load(search)} sx={{ minHeight: 44 }}>ค้นหา</Button>
       </Box>
 
       <Stack spacing={2}>
         {items.map((item) => (
           <Card key={item.orderItemId} variant="outlined">
-            <CardContent>
+            <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
                 <Typography sx={{ fontWeight: 700 }}>{item.productName}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {item.platformCode} · {item.platformOrderNo} · {item.qty} ชิ้น · {thb.format(item.unitPrice)}/ชิ้น
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(200px, 1fr) auto auto auto auto' }, gap: 1, alignItems: 'center' }}>
                 <TextField
                   label="เลข tracking (สแกน/กรอกเอง)"
                   size="small"
@@ -145,14 +153,14 @@ export function ScanPage() {
                     setTrackingInputs((prev) => ({ ...prev, [item.orderItemId]: value }));
                     setTrackingSources((prev) => ({ ...prev, [item.orderItemId]: 'manual' }));
                   }}
-                  sx={{ flex: 1, minWidth: 200 }}
+                  sx={{ minWidth: 0 }}
                 />
-                <IconButton size="small" color="primary" onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกนบาร์โค้ด">
+                <IconButton color="primary" onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกนบาร์โค้ด" sx={{ minWidth: 44, minHeight: 44 }}>
                   <CameraAltIcon fontSize="small" />
                 </IconButton>
-                <Button size="small" variant="outlined" onClick={() => handleSaveTracking(item)}>บันทึกเลข tracking</Button>
-                <Button size="small" variant="contained" onClick={() => handleConfirm(item)}>ยืนยันรับของ</Button>
-                <Button size="small" color="error" onClick={() => handleCancel(item)}>ยกเลิก/ไม่มา</Button>
+                <Button size="small" variant="outlined" onClick={() => handleSaveTracking(item)} sx={{ minHeight: 40, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>บันทึกเลข tracking</Button>
+                <Button size="small" variant="contained" onClick={() => handleConfirm(item)} sx={{ minHeight: 40 }}>ยืนยันรับของ</Button>
+                <Button size="small" color="error" onClick={() => setCancelTarget(item)} sx={{ minHeight: 44 }}>ยกเลิก/ไม่มา</Button>
               </Box>
             </CardContent>
           </Card>
@@ -170,6 +178,14 @@ export function ScanPage() {
         onClose={() => setScanTarget(null)}
         onDetected={handleScanDetected}
       />
+      <Dialog open={cancelTarget !== null} onClose={() => !cancelling && setCancelTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>ยืนยันยกเลิกรายการ</DialogTitle>
+        <DialogContent><DialogContentText>ยกเลิก {cancelTarget?.productName} และบันทึกว่าไม่ได้รับของ?</DialogContentText></DialogContent>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
+          <Button onClick={() => setCancelTarget(null)} disabled={cancelling}>กลับ</Button>
+          <Button color="error" variant="contained" disabled={cancelling} onClick={() => cancelTarget && handleCancel(cancelTarget)}>ยืนยันยกเลิก</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

@@ -51,7 +51,7 @@ export function BarcodeScannerDialog({ open, title, onClose, onDetected }: Barco
       scanner
         .start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 280, height: 160 } },
+          { fps: 10, qrbox: (width, height) => ({ width: Math.min(280, Math.max(1, width - 32)), height: Math.min(160, Math.max(1, height - 32)) }) },
           (decodedText) => {
             if (cancelled) return;
             onDetected(decodedText);
@@ -91,7 +91,7 @@ export function BarcodeScannerDialog({ open, title, onClose, onDetected }: Barco
   }, [open, onDetected]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, borderRadius: { xs: 0, sm: 2 } } }}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {error && <Alert severity="error">{error}</Alert>}
@@ -103,7 +103,7 @@ export function BarcodeScannerDialog({ open, title, onClose, onDetected }: Barco
           เล็งกล้องไปที่บาร์โค้ดบนกล่อง — ถ้าสแกนไม่ติด ปิดหน้าต่างนี้แล้วกรอกเลขเองได้
         </Typography>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
         <Button onClick={onClose}>ปิด</Button>
       </DialogActions>
     </Dialog>

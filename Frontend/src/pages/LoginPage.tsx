@@ -29,28 +29,28 @@ export function LoginPage() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: tokens.color.background,
-        px: 2,
+        px: { xs: 2, sm: 3 },
+        py: { xs: 2, sm: 4 },
       }}
     >
-      <Card sx={{ width: '100%', maxWidth: 380 }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box
-            component="img"
-            src="/logo.webp"
-            alt="Arbify"
-            sx={{ width: 44, height: 44, mb: 2, objectFit: 'contain' }}
-          />
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-            Arbify
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            เข้าสู่ระบบด้วย username และ password
-          </Typography>
+      <Card sx={{ width: '100%', maxWidth: 420 }}>
+        <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+            <Box
+              component="img"
+              src="/logo.jpg"
+              alt="Arbify"
+              sx={{ width: 200, height: 200, mb: 1.5, objectFit: 'contain', borderRadius: '16px' }}
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              เข้าสู่ระบบด้วย username และ password
+            </Typography>
+          </Box>
 
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -66,6 +66,7 @@ export function LoginPage() {
               autoFocus
               required
               fullWidth
+              autoComplete="username"
             />
             <TextField
               label="Password"
@@ -74,8 +75,9 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               fullWidth
+              autoComplete="current-password"
             />
-            <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth>
+            <Button type="submit" variant="contained" size="large" disabled={submitting} fullWidth sx={{ minHeight: 48 }}>
               {submitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </Button>
           </Box>
