@@ -40,13 +40,10 @@ export function LoginPage() {
       <Card sx={{ width: '100%', maxWidth: 380 }}>
         <CardContent sx={{ p: 4 }}>
           <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: `${tokens.radius.md}px`,
-              backgroundColor: tokens.color.primary,
-              mb: 2,
-            }}
+            component="img"
+            src="/logo.webp"
+            alt="Arbify"
+            sx={{ width: 44, height: 44, mb: 2, objectFit: 'contain' }}
           />
           <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
             Arbify

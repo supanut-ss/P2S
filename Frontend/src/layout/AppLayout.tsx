@@ -99,13 +99,10 @@ export function AppLayout() {
             </IconButton>
           )}
           <Box
-            sx={{
-              width: 28,
-              height: 28,
-              borderRadius: `${tokens.radius.md}px`,
-              backgroundColor: tokens.color.primary,
-              mr: 1.5,
-            }}
+            component="img"
+            src="/logo.webp"
+            alt="Arbify"
+            sx={{ width: 28, height: 28, mr: 1.5, objectFit: 'contain' }}
           />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700, fontSize: '1.125rem' }}>
             Arbify
