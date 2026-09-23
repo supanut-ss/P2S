@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { theme } from './theme/theme';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { RoleRoute } from './auth/RoleRoute';
 import { AppLayout } from './layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -29,12 +30,12 @@ export default function App() {
               }
             >
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/orders" element={<RoleRoute><OrdersPage /></RoleRoute>} />
               <Route path="/reimbursements" element={<ReimbursementsPage />} />
-              <Route path="/scan" element={<ScanPage />} />
-              <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/cancellations" element={<CancellationsPage />} />
-              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/scan" element={<RoleRoute><ScanPage /></RoleRoute>} />
+              <Route path="/inventory" element={<RoleRoute><InventoryPage /></RoleRoute>} />
+              <Route path="/cancellations" element={<RoleRoute><CancellationsPage /></RoleRoute>} />
+              <Route path="/admin" element={<RoleRoute><AdminPage /></RoleRoute>} />
             </Route>
           </Routes>
         </BrowserRouter>

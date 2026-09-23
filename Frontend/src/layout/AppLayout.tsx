@@ -28,6 +28,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { canAccessRoute } from '../auth/roleAccess';
 import { tokens } from '../theme/tokens';
 
 const DRAWER_WIDTH = 240;
@@ -52,7 +53,8 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const primaryItems = navItems.slice(0, 4);
+  const visibleNavItems = navItems.filter((item) => canAccessRoute(user?.role, item.to));
+  const primaryItems = visibleNavItems.slice(0, 4);
   const activeMobileItem = primaryItems.find((item) => item.to === location.pathname)?.to ?? 'more';
 
   const handleLogout = () => {
@@ -63,7 +65,7 @@ export function AppLayout() {
 
   const drawerContent = (
     <List sx={{ pt: 1 }}>
-      {navItems.map((item) => (
+      {visibleNavItems.map((item) => (
         <ListItemButton
           key={item.to}
           component={NavLink}
