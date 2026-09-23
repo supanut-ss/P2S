@@ -54,10 +54,14 @@ test('finance sees only finance-relevant nav items and cannot reach staff-only r
 
   await expect(page.getByRole('link', { name: 'เบิกเงิน', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'ยกเลิก', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'คลังสินค้า', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'ออเดอร์', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'รับของ', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'คลังสินค้า', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'ข้อมูลหลัก', exact: true })).toHaveCount(0);
+
+  // Finance can view inventory (reimbursement math depends on knowing what's in stock).
+  await page.goto('/inventory');
+  await expect(page).toHaveURL('/inventory');
 
   await page.goto('/orders');
   await expect(page).toHaveURL('/');
