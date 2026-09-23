@@ -1,12 +1,12 @@
 import { apiClient } from './client';
-import type { PendingOrderItemResponse } from '../types/models';
+import type { DeliveryMatchMethod, PendingOrderItemResponse } from '../types/models';
 
 export async function getPending(search?: string): Promise<PendingOrderItemResponse[]> {
   const { data } = await apiClient.get<PendingOrderItemResponse[]>('/api/deliveries/pending', { params: { search } });
   return data;
 }
 
-export async function confirmArrived(orderItemId: number, scannedCode: string, matchMethod: 'Barcode' | 'ManualTrackingEntry' | 'OrderNumberSearch'): Promise<{ inventoryItemId: number }> {
+export async function confirmArrived(orderItemId: number, scannedCode: string, matchMethod: DeliveryMatchMethod): Promise<{ inventoryItemId: number }> {
   const { data } = await apiClient.post(`/api/deliveries/${orderItemId}/confirm-arrived`, { scannedCode, matchMethod });
   return data;
 }

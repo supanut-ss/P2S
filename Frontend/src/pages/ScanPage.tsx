@@ -1,21 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Stack, TextField, Typography,
+  Alert, Box, Button, Card, CardContent, IconButton, Stack, TextField, Typography,
 } from '@mui/material';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { PageHeader } from '../components/PageHeader';
+import { BarcodeScannerDialog } from '../components/BarcodeScannerDialog';
 import { getPending, confirmArrived, cancelOrderItem } from '../api/deliveriesApi';
 import { setTracking as setTrackingApi } from '../api/ordersApi';
-import type { PendingOrderItemResponse } from '../types/models';
+import type { DeliveryMatchMethod, PendingOrderItemResponse } from '../types/models';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
+
+// A value the staff typed by hand isn't proof the barcode actually matches this item — only
+// a live camera decode is. Tracked separately from the input's text so matchMethod reported
+// to the API reflects how the value was actually obtained, not just whether it happens to
+// equal the string already on file.
+type TrackingSource = 'scanned' | 'manual';
 
 export function ScanPage() {
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<PendingOrderItemResponse[]>([]);
   const [trackingInputs, setTrackingInputs] = useState<Record<number, string>>({});
+  const [trackingSources, setTrackingSources] = useState<Record<number, TrackingSource>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // null = closed, 'search' = scanning to fill the top search box, a number = scanning to
+  // fill that order item's tracking field.
+  const [scanTarget, setScanTarget] = useState<'search' | number | null>(null);
 
   const load = async (query?: string) => {
     setLoading(true);
@@ -59,7 +72,7 @@ export function ScanPage() {
       setError('กรอกหรือสแกนเลข tracking ก่อนยืนยันรับของ');
       return;
     }
-    const matchMethod = scannedValue === item.trackingNo ? 'Barcode' : 'ManualTrackingEntry';
+    const matchMethod: DeliveryMatchMethod = trackingSources[item.orderItemId] === 'scanned' ? 'Barcode' : 'ManualTrackingEntry';
     try {
       await confirmArrived(item.orderItemId, scannedValue, matchMethod);
       setMessage(`รับของ ${item.productName} เข้าคลังแล้ว`);
@@ -79,6 +92,18 @@ export function ScanPage() {
     }
   };
 
+  const handleScanDetected = useCallback((code: string) => {
+    if (scanTarget === 'search') {
+      setSearch(code);
+      load(code);
+    } else if (typeof scanTarget === 'number') {
+      setTrackingInputs((prev) => ({ ...prev, [scanTarget]: code }));
+      setTrackingSources((prev) => ({ ...prev, [scanTarget]: 'scanned' }));
+    }
+    setScanTarget(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanTarget]);
+
   return (
     <>
       <PageHeader title="สแกนรับของ" subtitle="สแกนบาร์โค้ด/เลข tracking ของร้าน แล้ว confirm รับของ — ถ้าสแกนไม่ติด ค้นด้วยเลขออเดอร์แทนได้" />
@@ -94,6 +119,9 @@ export function ScanPage() {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && load(search)}
         />
+        <Button variant="outlined" startIcon={<CameraAltIcon />} onClick={() => setScanTarget('search')} sx={{ whiteSpace: 'nowrap' }}>
+          สแกนกล้อง
+        </Button>
         <Button variant="outlined" onClick={() => load(search)}>ค้นหา</Button>
       </Box>
 
@@ -112,9 +140,16 @@ export function ScanPage() {
                   label="เลข tracking (สแกน/กรอกเอง)"
                   size="small"
                   value={trackingInputs[item.orderItemId] ?? ''}
-                  onChange={(e) => setTrackingInputs((prev) => ({ ...prev, [item.orderItemId]: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setTrackingInputs((prev) => ({ ...prev, [item.orderItemId]: value }));
+                    setTrackingSources((prev) => ({ ...prev, [item.orderItemId]: 'manual' }));
+                  }}
                   sx={{ flex: 1, minWidth: 200 }}
                 />
+                <IconButton size="small" color="primary" onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกนบาร์โค้ด">
+                  <CameraAltIcon fontSize="small" />
+                </IconButton>
                 <Button size="small" variant="outlined" onClick={() => handleSaveTracking(item)}>บันทึกเลข tracking</Button>
                 <Button size="small" variant="contained" onClick={() => handleConfirm(item)}>ยืนยันรับของ</Button>
                 <Button size="small" color="error" onClick={() => handleCancel(item)}>ยกเลิก/ไม่มา</Button>
@@ -128,6 +163,13 @@ export function ScanPage() {
           </Typography>
         )}
       </Stack>
+
+      <BarcodeScannerDialog
+        open={scanTarget !== null}
+        title={scanTarget === 'search' ? 'สแกนเพื่อค้นหา' : 'สแกนเลข tracking'}
+        onClose={() => setScanTarget(null)}
+        onDetected={handleScanDetected}
+      />
     </>
   );
 }

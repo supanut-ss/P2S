@@ -6,6 +6,7 @@ export type OrderItemStatus = 'Pending' | 'Arrived' | 'Cancelled';
 export type ReimbursementStatus = 'Pending' | 'Approved' | 'Paid';
 export type InventoryItemStatus = 'InStock' | 'Depleted';
 export type CancellationStatus = 'RefundPending' | 'Refunded' | 'Adjusted';
+export type DeliveryMatchMethod = 'Barcode' | 'ManualTrackingEntry' | 'OrderNumberSearch';
 
 export interface ProductResponse {
   id: number;
