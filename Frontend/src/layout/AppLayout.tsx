@@ -162,7 +162,7 @@ export function AppLayout() {
           aria-label="เมนูหลัก"
           value={activeMobileItem}
           showLabels
-          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: `1px solid ${tokens.color.border}`, zIndex: theme.zIndex.appBar, bgcolor: tokens.color.white, '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.625rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
+          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: `1px solid ${tokens.color.border}`, zIndex: theme.zIndex.appBar, bgcolor: tokens.color.white, '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
         >
           {primaryItems.map((item) => <BottomNavigationAction key={item.to} value={item.to} label={item.label} icon={item.icon} onClick={() => navigate(item.to)} />)}
           <BottomNavigationAction value="more" label="เพิ่มเติม" icon={<MoreHorizIcon />} onClick={() => setMobileOpen(true)} />

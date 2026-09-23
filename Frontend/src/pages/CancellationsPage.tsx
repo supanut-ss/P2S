@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TextField, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
+import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { cancellationStatusLabel } from '../theme/tokens';
 import { listCancellations, resolveCancellation } from '../api/cancellationsApi';
@@ -59,10 +60,14 @@ export function CancellationsPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดรายการยกเลิก" sx={{ mb: 2 }} />}
 
-      <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ mb: 2, minWidth: 180 }}>
-        <MenuItem value="">ทุกสถานะ</MenuItem>
-        {Object.entries(cancellationStatusLabel).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
-      </TextField>
+      <ResponsiveSelectField
+        label="สถานะ"
+        size="small"
+        value={statusFilter}
+        options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
+        onChange={(value) => setStatusFilter(String(value))}
+        sx={{ mb: 2, minWidth: 180 }}
+      />
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">

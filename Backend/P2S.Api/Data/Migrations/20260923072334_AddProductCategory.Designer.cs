@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using P2S.Api.Data;
 
@@ -11,9 +12,11 @@ using P2S.Api.Data;
 namespace P2S.Api.Data.Migrations
 {
     [DbContext(typeof(P2SDbContext))]
-    partial class P2SDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923072334_AddProductCategory")]
+    partial class AddProductCategory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

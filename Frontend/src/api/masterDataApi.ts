@@ -6,12 +6,12 @@ export async function getProducts(): Promise<ProductResponse[]> {
   return data;
 }
 
-export async function createProduct(payload: { name: string; skuCode: string; unit: string }): Promise<ProductResponse> {
+export async function createProduct(payload: { name: string; skuCode: string; category: string; unit: string }): Promise<ProductResponse> {
   const { data } = await apiClient.post<ProductResponse>('/api/products', payload);
   return data;
 }
 
-export async function updateProduct(id: number, payload: { name: string; skuCode: string; unit: string; isActive: boolean }): Promise<ProductResponse> {
+export async function updateProduct(id: number, payload: { name: string; skuCode: string; category: string; unit: string; isActive: boolean }): Promise<ProductResponse> {
   const { data } = await apiClient.put<ProductResponse>(`/api/products/${id}`, payload);
   return data;
 }

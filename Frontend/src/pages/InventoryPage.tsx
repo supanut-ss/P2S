@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, MenuItem,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
+import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { inventoryItemStatusLabel } from '../theme/tokens';
 import { listInventory, withdraw } from '../api/inventoryApi';
@@ -83,10 +84,14 @@ export function InventoryPage() {
       {loading && <LinearProgress aria-label="กำลังโหลดคลังสินค้า" sx={{ mb: 2 }} />}
 
       <Box sx={{ mb: 2 }}>
-        <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ minWidth: 180 }}>
-          <MenuItem value="">ทุกสถานะ</MenuItem>
-          {Object.entries(inventoryItemStatusLabel).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
-        </TextField>
+        <ResponsiveSelectField
+          label="สถานะ"
+          size="small"
+          value={statusFilter}
+          options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(inventoryItemStatusLabel).map(([value, label]) => ({ value, label }))]}
+          onChange={(value) => setStatusFilter(String(value))}
+          sx={{ minWidth: 180 }}
+        />
       </Box>
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
@@ -166,9 +171,12 @@ export function InventoryPage() {
             onChange={(e) => setQty(Number(e.target.value))}
             helperText={target ? `คงเหลือ ${target.qtyOnHand} ชิ้น` : undefined}
           />
-          <TextField select label="เหตุผล" value={reasonId} onChange={(e) => setReasonId(Number(e.target.value))}>
-            {reasons.map((r) => <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>)}
-          </TextField>
+          <ResponsiveSelectField
+            label="เหตุผล"
+            value={reasonId}
+            options={reasons.map((reason) => ({ value: reason.id, label: reason.name }))}
+            onChange={(value) => setReasonId(Number(value))}
+          />
           <TextField label="หมายเหตุ (ถ้ามี)" value={note} onChange={(e) => setNote(e.target.value)} multiline rows={2} />
         </DialogContent>
         <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 }, px: { xs: 2, sm: 1 }, display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, '& > button': { width: { xs: '100%', sm: 'auto' }, minHeight: 44 } }}>

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
-  MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { PageHeader } from '../components/PageHeader';
+import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { purchaseOrderStatusLabel } from '../theme/tokens';
 import { createOrder, listOrders, markPaid, type CreateOrderItemInput } from '../api/ordersApi';
@@ -122,10 +123,13 @@ export function OrdersPage() {
       {loading && <LinearProgress aria-label="กำลังโหลดออเดอร์" sx={{ mb: 2 }} />}
 
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', '& > .MuiFormControl-root': { flex: { xs: '1 1 100%', sm: '0 1 220px' } } }}>
-        <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <MenuItem value="">ทุกสถานะ</MenuItem>
-          {Object.entries(purchaseOrderStatusLabel).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
-        </TextField>
+        <ResponsiveSelectField
+          label="สถานะ"
+          size="small"
+          value={statusFilter}
+          options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(purchaseOrderStatusLabel).map(([value, label]) => ({ value, label }))]}
+          onChange={(value) => setStatusFilter(String(value))}
+        />
         <TextField
           label="ค้นหาเลขออเดอร์"
           size="small"
@@ -202,17 +206,25 @@ export function OrdersPage() {
         <DialogTitle>สั่งของใหม่</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {formError && <Alert severity="error">{formError}</Alert>}
-          <TextField select label="Platform" value={formPlatformId} onChange={(e) => setFormPlatformId(Number(e.target.value))}>
-            {platforms.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-          </TextField>
+          <ResponsiveSelectField
+            label="Platform"
+            value={formPlatformId}
+            options={platforms.map((platform) => ({ value: platform.id, label: platform.name }))}
+            onChange={(value) => setFormPlatformId(Number(value))}
+          />
           <TextField label="เลขออเดอร์ (จากแอพ)" value={formOrderNo} onChange={(e) => setFormOrderNo(e.target.value)} />
 
           <Typography variant="subtitle2">รายการสินค้า</Typography>
           {formItems.map((item, idx) => (
             <Box key={idx} sx={{ display: 'flex', flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1, alignItems: 'center', border: { xs: '1px solid', sm: 0 }, borderColor: 'divider', borderRadius: 2, p: { xs: 1.5, sm: 0 } }}>
-              <TextField select label="สินค้า" size="small" value={item.productId || ''} onChange={(e) => updateItem(idx, { productId: Number(e.target.value) })} sx={{ flex: { xs: '1 1 100%', sm: 2 } }}>
-                {products.map((p) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-              </TextField>
+              <ResponsiveSelectField
+                label="สินค้า"
+                size="small"
+                value={item.productId || ''}
+                options={products.map((product) => ({ value: product.id, label: product.name }))}
+                onChange={(value) => updateItem(idx, { productId: Number(value) })}
+                sx={{ flex: { xs: '1 1 100%', sm: 2 } }}
+              />
               <TextField label="จำนวน" size="small" type="number" value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} sx={{ flex: 1, minWidth: 0 }} />
               <TextField label="ราคา/ชิ้น" size="small" type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })} sx={{ flex: 1, minWidth: 0 }} />
               <IconButton size="small" aria-label={`ลบรายการสินค้า ${idx + 1}`} onClick={() => removeItem(idx)} disabled={formItems.length === 1} sx={{ minWidth: 44, minHeight: 44 }}>

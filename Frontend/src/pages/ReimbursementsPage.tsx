@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Checkbox, LinearProgress, MenuItem, Paper, Stack, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Typography,
+  Alert, Box, Button, Card, CardContent, Checkbox, LinearProgress, Paper, Stack, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
+import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { reimbursementStatusLabel } from '../theme/tokens';
 import { approveReimbursement, createReimbursement, listReimbursements, payReimbursement } from '../api/reimbursementsApi';
@@ -160,10 +161,14 @@ export function ReimbursementsPage() {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1, mb: 1 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>คำขอเบิกเงิน</Typography>
-        <TextField select label="สถานะ" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} sx={{ minWidth: { sm: 180 }, width: { xs: '100%', sm: 'auto' } }}>
-          <MenuItem value="">ทุกสถานะ</MenuItem>
-          {Object.entries(reimbursementStatusLabel).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
-        </TextField>
+        <ResponsiveSelectField
+          label="สถานะ"
+          size="small"
+          value={statusFilter}
+          options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(reimbursementStatusLabel).map(([value, label]) => ({ value, label }))]}
+          onChange={(value) => setStatusFilter(String(value))}
+          sx={{ minWidth: { sm: 180 }, width: { xs: '100%', sm: 'auto' } }}
+        />
       </Box>
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">

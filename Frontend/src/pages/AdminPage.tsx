@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
-  LinearProgress, MenuItem, Paper, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
+  LinearProgress, Paper, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Tabs, TextField, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { PageHeader } from '../components/PageHeader';
+import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import {
   createPlatform, createProduct, createUser, createWithdrawalReason,
   deletePlatform, deleteProduct, deleteUser, deleteWithdrawalReason,
@@ -55,11 +56,13 @@ export function AdminPage() {
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [newProductName, setNewProductName] = useState('');
   const [newProductSku, setNewProductSku] = useState('');
+  const [newProductCategory, setNewProductCategory] = useState('ทั่วไป');
   const [newProductUnit, setNewProductUnit] = useState('ชิ้น');
 
   const [editingProduct, setEditingProduct] = useState<ProductResponse | null>(null);
   const [editName, setEditName] = useState('');
   const [editSku, setEditSku] = useState('');
+  const [editCategory, setEditCategory] = useState('ทั่วไป');
   const [editUnit, setEditUnit] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -128,29 +131,30 @@ export function AdminPage() {
   const handleAddProduct = async () => {
     if (!newProductName.trim() || !newProductSku.trim()) return;
     try {
-      await createProduct({ name: newProductName.trim(), skuCode: newProductSku.trim(), unit: newProductUnit });
-      setNewProductName(''); setNewProductSku('');
+      await createProduct({ name: newProductName.trim(), skuCode: newProductSku.trim(), category: newProductCategory.trim() || 'ทั่วไป', unit: newProductUnit });
+      setNewProductName(''); setNewProductSku(''); setNewProductCategory('ทั่วไป');
       loadAll();
-    } catch {
-      setError('เพิ่มสินค้าไม่สำเร็จ (SKU อาจซ้ำ)');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'เพิ่มสินค้าไม่สำเร็จ');
     }
   };
 
   const handleToggleProduct = async (p: ProductResponse) => {
-    await updateProduct(p.id, { name: p.name, skuCode: p.skuCode, unit: p.unit, isActive: !p.isActive });
+    await updateProduct(p.id, { name: p.name, skuCode: p.skuCode, category: p.category, unit: p.unit, isActive: !p.isActive });
     loadAll();
   };
 
   const openEditProduct = (p: ProductResponse) => {
-    setEditingProduct(p); setEditName(p.name); setEditSku(p.skuCode); setEditUnit(p.unit); setEditError(null);
+    setEditingProduct(p); setEditName(p.name); setEditSku(p.skuCode); setEditCategory(p.category); setEditUnit(p.unit); setEditError(null);
   };
 
   const handleSaveProductEdit = async () => {
     if (!editingProduct) return;
-    if (!editName.trim() || !editSku.trim() || !editUnit.trim()) { setEditError('กรอกข้อมูลให้ครบ'); return; }
+    if (!editName.trim() || !editSku.trim() || !editCategory.trim() || !editUnit.trim()) { setEditError('กรอกข้อมูลให้ครบ'); return; }
     setEditSubmitting(true); setEditError(null);
     try {
-      await updateProduct(editingProduct.id, { name: editName.trim(), skuCode: editSku.trim(), unit: editUnit.trim(), isActive: editingProduct.isActive });
+      await updateProduct(editingProduct.id, { name: editName.trim(), skuCode: editSku.trim(), category: editCategory.trim(), unit: editUnit.trim(), isActive: editingProduct.isActive });
       setEditingProduct(null); loadAll();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -325,9 +329,10 @@ export function AdminPage() {
 
       {/* ── Products tab ──────────────────────────────────────────────────── */}
       <TabPanel active={tab === 0}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'minmax(180px, 1fr) minmax(140px, 0.7fr) 100px auto' }, gap: 1, mb: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'minmax(140px, 1fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 100px auto' }, gap: 1, mb: 2 }}>
           <TextField label="ชื่อสินค้า" size="small" value={newProductName} onChange={(e) => setNewProductName(e.target.value)} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
           <TextField label="SKU" size="small" value={newProductSku} onChange={(e) => setNewProductSku(e.target.value)} />
+          <TextField label="หมวดหมู่" size="small" value={newProductCategory} onChange={(e) => setNewProductCategory(e.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} />
           <TextField label="หน่วย" size="small" value={newProductUnit} onChange={(e) => setNewProductUnit(e.target.value)} />
           <Button variant="contained" onClick={handleAddProduct} sx={{ minHeight: 40 }}>เพิ่ม</Button>
         </Box>
@@ -336,7 +341,7 @@ export function AdminPage() {
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
             <TableHead><TableRow>
-              <TableCell>ชื่อ</TableCell><TableCell>SKU</TableCell><TableCell>หน่วย</TableCell>
+              <TableCell>ชื่อ</TableCell><TableCell>SKU</TableCell><TableCell>หมวดหมู่</TableCell><TableCell>หน่วย</TableCell>
               <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
             </TableRow></TableHead>
             <TableBody>
@@ -344,6 +349,7 @@ export function AdminPage() {
                 <TableRow key={p.id}>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.skuCode}</TableCell>
+                  <TableCell>{p.category}</TableCell>
                   <TableCell>{p.unit}</TableCell>
                   <TableCell align="right">
                     <ActionButtons onEdit={() => openEditProduct(p)} onDelete={() => setDeletingProduct(p)} />
@@ -364,6 +370,7 @@ export function AdminPage() {
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 700 }} noWrap>{p.name}</Typography>
                     <Typography variant="body2" color="text.secondary">{p.skuCode} · {p.unit}</Typography>
+                    <Chip size="small" label={p.category} sx={{ mt: 0.5 }} />
                   </Box>
                   <IconButton onClick={() => openEditProduct(p)} aria-label={`แก้ไขสินค้า ${p.name}`} sx={{ minWidth: 44, minHeight: 44 }}><EditIcon /></IconButton>
                   <IconButton onClick={() => setDeletingProduct(p)} aria-label={`ลบสินค้า ${p.name}`} color="error" sx={{ minWidth: 44, minHeight: 44 }}><DeleteIcon /></IconButton>
@@ -381,6 +388,7 @@ export function AdminPage() {
             {editError && <Alert severity="error">{editError}</Alert>}
             <TextField label="ชื่อสินค้า" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
             <TextField label="SKU" value={editSku} onChange={(e) => setEditSku(e.target.value)} />
+            <TextField label="หมวดหมู่" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} />
             <TextField label="หน่วย" value={editUnit} onChange={(e) => setEditUnit(e.target.value)} />
           </DialogContent>
           <DialogActions sx={{ p: 2, gap: 1, flexDirection: { xs: 'column-reverse', sm: 'row' }, '& > button': { width: { xs: '100%', sm: 'auto' }, minHeight: 44 } }}>
@@ -540,11 +548,13 @@ export function AdminPage() {
           <TextField label="Username" size="small" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} />
           <TextField label="Password ชั่วคราว" size="small" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
           <TextField label="ชื่อเต็ม" size="small" value={newUserFullName} onChange={(e) => setNewUserFullName(e.target.value)} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
-          <TextField select label="Role" size="small" value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)}>
-            <MenuItem value="staff">staff</MenuItem>
-            <MenuItem value="finance">finance</MenuItem>
-            <MenuItem value="admin">admin</MenuItem>
-          </TextField>
+          <ResponsiveSelectField
+            label="Role"
+            size="small"
+            value={newUserRole}
+            options={[{ value: 'staff', label: 'staff' }, { value: 'finance', label: 'finance' }, { value: 'admin', label: 'admin' }]}
+            onChange={(value) => setNewUserRole(String(value))}
+          />
           <Button variant="contained" onClick={handleAddUser} sx={{ minHeight: 40 }}>เพิ่ม</Button>
         </Box>
 
@@ -596,11 +606,12 @@ export function AdminPage() {
             {editUserError && <Alert severity="error">{editUserError}</Alert>}
             <TextField label="Username" value={editingUser?.username ?? ''} disabled helperText="Username ไม่สามารถเปลี่ยนได้" />
             <TextField label="ชื่อเต็ม" value={editUserFullName} onChange={(e) => setEditUserFullName(e.target.value)} autoFocus />
-            <TextField select label="Role" value={editUserRole} onChange={(e) => setEditUserRole(e.target.value)}>
-              <MenuItem value="staff">staff</MenuItem>
-              <MenuItem value="finance">finance</MenuItem>
-              <MenuItem value="admin">admin</MenuItem>
-            </TextField>
+            <ResponsiveSelectField
+              label="Role"
+              value={editUserRole}
+              options={[{ value: 'staff', label: 'staff' }, { value: 'finance', label: 'finance' }, { value: 'admin', label: 'admin' }]}
+              onChange={(value) => setEditUserRole(String(value))}
+            />
           </DialogContent>
           <DialogActions sx={{ p: 2, gap: 1 }}>
             <Button onClick={() => setEditingUser(null)}>ยกเลิก</Button>

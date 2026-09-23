@@ -48,6 +48,7 @@ public class P2SDbContext : DbContext
         modelBuilder.Entity<Product>(e =>
         {
             e.HasIndex(x => x.SkuCode).IsUnique();
+            e.Property(x => x.Category).HasMaxLength(100).HasDefaultValue("ทั่วไป");
         });
 
         modelBuilder.Entity<PurchaseOrder>(e =>

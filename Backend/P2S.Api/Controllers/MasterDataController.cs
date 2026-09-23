@@ -29,7 +29,7 @@ public class MasterDataController : ControllerBase
     {
         var products = await _db.Products
             .OrderBy(p => p.Name)
-            .Select(p => new ProductResponse(p.Id, p.Name, p.SkuCode, p.Unit, p.IsActive))
+            .Select(p => new ProductResponse(p.Id, p.Name, p.SkuCode, p.Category, p.Unit, p.IsActive))
             .ToListAsync(ct);
         return Ok(products);
     }
@@ -43,10 +43,10 @@ public class MasterDataController : ControllerBase
             return Conflict(new { message = $"SKU '{request.SkuCode}' มีอยู่แล้ว" });
         }
 
-        var product = new Product { Name = request.Name, SkuCode = request.SkuCode, Unit = request.Unit, IsActive = true };
+        var product = new Product { Name = request.Name, SkuCode = request.SkuCode, Category = request.Category, Unit = request.Unit, IsActive = true };
         _db.Products.Add(product);
         await _db.SaveChangesAsync(ct);
-        return Ok(new ProductResponse(product.Id, product.Name, product.SkuCode, product.Unit, product.IsActive));
+        return Ok(new ProductResponse(product.Id, product.Name, product.SkuCode, product.Category, product.Unit, product.IsActive));
     }
 
     [HttpPut("products/{id:int}")]
@@ -63,10 +63,11 @@ public class MasterDataController : ControllerBase
 
         product.Name = request.Name;
         product.SkuCode = request.SkuCode;
+        product.Category = request.Category;
         product.Unit = request.Unit;
         product.IsActive = request.IsActive;
         await _db.SaveChangesAsync(ct);
-        return Ok(new ProductResponse(product.Id, product.Name, product.SkuCode, product.Unit, product.IsActive));
+        return Ok(new ProductResponse(product.Id, product.Name, product.SkuCode, product.Category, product.Unit, product.IsActive));
     }
 
     [HttpDelete("products/{id:int}")]

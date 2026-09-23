@@ -64,6 +64,13 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Keep deployed databases aligned with the API before accepting requests.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<P2SDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 // Must sit ahead of any middleware that cares about scheme/remote IP — needed when
 // deployed behind a reverse proxy (nginx/IIS or most PaaS) that terminates TLS and
 // forwards plain HTTP internally.

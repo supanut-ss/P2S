@@ -13,6 +13,8 @@ public static class SeedData
 {
     public const string DefaultAdminUsername = "admin";
     public const string DefaultAdminPassword = "ChangeMe123!";
+    // Keep this fixed so creating later EF migrations never rewrites an existing admin password.
+    private const string DefaultAdminPasswordHash = "$2a$11$6.ODqcZJThUh843qWE0.Wu6pN6xlwY8S9hg88ttf5AT1O.EhomOz.";
 
     public static void Apply(ModelBuilder modelBuilder)
     {
@@ -27,7 +29,7 @@ public static class SeedData
             {
                 Id = 1,
                 Username = DefaultAdminUsername,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(DefaultAdminPassword),
+                PasswordHash = DefaultAdminPasswordHash,
                 FullName = "System Administrator",
                 RoleId = 3,
                 IsActive = true,

@@ -12,6 +12,7 @@ export interface ProductResponse {
   id: number;
   name: string;
   skuCode: string;
+  category: string;
   unit: string;
   isActive: boolean;
 }
