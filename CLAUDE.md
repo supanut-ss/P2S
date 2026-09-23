@@ -57,9 +57,23 @@ Seeded login: `admin` / `ChangeMe123!` — rotate via `POST /api/auth/admin-rese
 dotnet test Backend/P2S.Api.Tests/P2S.Api.Tests.csproj
 ```
 
-8 tests as of Phase 3, all using EF Core's InMemory provider (remember to call `context.Database.EnsureCreated()` in test setup — HasData seed rows don't materialize otherwise). One test (`ComputeAndSaveAsync_SumsOnlyOrdersPlacedOnTheBusinessDate`) exercises the Asia/Bangkok midnight boundary specifically — don't remove it, that's the exact edge case a date-scoped query gets wrong first.
+21 tests as of the business-controllers pass, all using EF Core's InMemory provider (remember to call `context.Database.EnsureCreated()` in test setup — HasData seed rows don't materialize otherwise). One test (`ComputeAndSaveAsync_SumsOnlyOrdersPlacedOnTheBusinessDate`) exercises the Asia/Bangkok midnight boundary specifically — don't remove it, that's the exact edge case a date-scoped query gets wrong first.
 
 When testing anything decimal-money-related against a *real* MySQL connection (not InMemory), watch for the precision trap already hit once: `SUM(int_column * decimal(18,2)_column)` in MySQL widens to `decimal(65,30)`, and if you read that value straight off an entity after `SaveChangesAsync()` (rather than re-querying), the oversized scale leaks past the column's `HasPrecision(18,2)` truncation. Round explicitly before assigning — see `DailyFinanceSnapshotService` for the pattern.
+
+### E2E (Playwright)
+
+```bash
+cd Frontend
+npm run test:e2e        # headless
+npm run test:e2e:ui     # interactive UI mode
+```
+
+[Frontend/e2e/main-flow.spec.ts](Frontend/e2e/main-flow.spec.ts) covers the full procure-to-stock happy path through the real screens: create product → order → mark-paid → scan-confirm arrival (auto-creates the inventory lot) → withdraw stock → request/approve/pay reimbursement → order flips to Reimbursed.
+
+- **Backend + MySQL must already be running** (same setup as above) — `playwright.config.ts` only manages the frontend dev server's lifecycle. [e2e/global-setup.ts](Frontend/e2e/global-setup.ts) pings `/health` first and fails the whole run immediately with a clear message if the backend isn't up, rather than every test timing out individually.
+- Test data uses a `Date.now()`-based suffix (SKU, order number), so the suite can be run repeatedly against the same database without a reset or colliding on uniqueness constraints.
+- MUI's `<TextField select>` doesn't render a native `<select>` — use the `selectMuiOption()` helper in `e2e/helpers.ts` rather than `page.selectOption()`.
 
 ## Deploy scripts — not yet run for real
 
