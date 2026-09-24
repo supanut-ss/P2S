@@ -19,6 +19,10 @@ namespace P2S.Api.Data.Migrations
                 name: "IX_PurchaseOrders_PlatformId_PlatformOrderNo",
                 table: "PurchaseOrders");
 
+            migrationBuilder.DropForeignKey(
+                name: "FK_Cancellations_OrderItems_OrderItemId",
+                table: "Cancellations");
+
             migrationBuilder.DropIndex(
                 name: "IX_Cancellations_OrderItemId",
                 table: "Cancellations");
@@ -209,6 +213,14 @@ namespace P2S.Api.Data.Migrations
                 table: "Cancellations",
                 column: "OrderItemId");
 
+            migrationBuilder.AddForeignKey(
+                name: "FK_Cancellations_OrderItems_OrderItemId",
+                table: "Cancellations",
+                column: "OrderItemId",
+                principalTable: "OrderItems",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
             migrationBuilder.CreateIndex(
                 name: "IX_Cancellations_ReportedByUserId",
                 table: "Cancellations",
@@ -319,6 +331,10 @@ namespace P2S.Api.Data.Migrations
                 name: "IX_PurchaseOrders_PlatformId_PlatformOrderNo",
                 table: "PurchaseOrders");
 
+            migrationBuilder.DropForeignKey(
+                name: "FK_Cancellations_OrderItems_OrderItemId",
+                table: "Cancellations");
+
             migrationBuilder.DropIndex(
                 name: "IX_Cancellations_OrderItemId",
                 table: "Cancellations");
@@ -425,6 +441,14 @@ namespace P2S.Api.Data.Migrations
                 table: "Cancellations",
                 column: "OrderItemId",
                 unique: true);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Cancellations_OrderItems_OrderItemId",
+                table: "Cancellations",
+                column: "OrderItemId",
+                principalTable: "OrderItems",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
         }
     }
 }
