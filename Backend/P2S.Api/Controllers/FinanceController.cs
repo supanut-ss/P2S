@@ -64,20 +64,37 @@ public class FinanceController : ControllerBase
     [Authorize(Roles = "finance,admin")]
     public async Task<ActionResult<List<StaffBalanceResponse>>> GetStaffBalances(CancellationToken cancellationToken)
     {
+        // Grouping by UserId alone (rather than including the User navigation properties in the
+        // group key) keeps this translatable by the MySQL provider — mixing a join-derived key with
+        // conditional Sum aggregates in one query throws "could not be translated" on Pomelo.
         var balances = await _db.StaffLedgerEntries
-            .GroupBy(entry => new { entry.UserId, entry.User.Username, entry.User.FullName })
-            .Select(group => new StaffBalanceResponse(
-                group.Key.UserId,
-                group.Key.Username,
-                group.Key.FullName,
-                group.Sum(entry => entry.Amount),
-                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.AdvancePaid ? entry.Amount : 0m),
-                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.Reimbursed ? -entry.Amount : 0m),
-                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.RefundDue || entry.EntryType == StaffLedgerEntryType.RefundSettled ? -entry.Amount : 0m),
-                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.Adjustment ? entry.Amount : 0m)))
+            .GroupBy(entry => entry.UserId)
+            .Select(group => new
+            {
+                UserId = group.Key,
+                Balance = group.Sum(entry => entry.Amount),
+                AdvancePaid = group.Where(entry => entry.EntryType == StaffLedgerEntryType.AdvancePaid).Sum(entry => entry.Amount),
+                Reimbursed = group.Where(entry => entry.EntryType == StaffLedgerEntryType.Reimbursed).Sum(entry => -entry.Amount),
+                RefundOwed = group.Where(entry => entry.EntryType == StaffLedgerEntryType.RefundDue || entry.EntryType == StaffLedgerEntryType.RefundSettled).Sum(entry => -entry.Amount),
+                Adjustment = group.Where(entry => entry.EntryType == StaffLedgerEntryType.Adjustment).Sum(entry => entry.Amount),
+            })
             .OrderByDescending(balance => balance.Balance)
             .ToListAsync(cancellationToken);
 
-        return Ok(balances);
+        var users = await _db.Users
+            .Where(u => balances.Select(b => b.UserId).Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, cancellationToken);
+
+        var result = balances.Select(b => new StaffBalanceResponse(
+            b.UserId,
+            users[b.UserId].Username,
+            users[b.UserId].FullName,
+            b.Balance,
+            b.AdvancePaid,
+            b.Reimbursed,
+            b.RefundOwed,
+            b.Adjustment)).ToList();
+
+        return Ok(result);
     }
 }
