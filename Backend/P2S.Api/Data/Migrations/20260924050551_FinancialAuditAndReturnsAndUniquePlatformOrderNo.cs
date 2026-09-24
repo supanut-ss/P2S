@@ -11,6 +11,10 @@ namespace P2S.Api.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_PurchaseOrders_Platforms_PlatformId",
+                table: "PurchaseOrders");
+
             migrationBuilder.DropIndex(
                 name: "IX_PurchaseOrders_PlatformId_PlatformOrderNo",
                 table: "PurchaseOrders");
@@ -192,6 +196,14 @@ namespace P2S.Api.Data.Migrations
                 columns: new[] { "PlatformId", "PlatformOrderNo" },
                 unique: true);
 
+            migrationBuilder.AddForeignKey(
+                name: "FK_PurchaseOrders_Platforms_PlatformId",
+                table: "PurchaseOrders",
+                column: "PlatformId",
+                principalTable: "Platforms",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
+
             migrationBuilder.CreateIndex(
                 name: "IX_Cancellations_OrderItemId",
                 table: "Cancellations",
@@ -299,6 +311,10 @@ namespace P2S.Api.Data.Migrations
                 name: "IX_PurchaseOrders_PaymentRecordedByUserId",
                 table: "PurchaseOrders");
 
+            migrationBuilder.DropForeignKey(
+                name: "FK_PurchaseOrders_Platforms_PlatformId",
+                table: "PurchaseOrders");
+
             migrationBuilder.DropIndex(
                 name: "IX_PurchaseOrders_PlatformId_PlatformOrderNo",
                 table: "PurchaseOrders");
@@ -395,6 +411,14 @@ namespace P2S.Api.Data.Migrations
                 name: "IX_PurchaseOrders_PlatformId_PlatformOrderNo",
                 table: "PurchaseOrders",
                 columns: new[] { "PlatformId", "PlatformOrderNo" });
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_PurchaseOrders_Platforms_PlatformId",
+                table: "PurchaseOrders",
+                column: "PlatformId",
+                principalTable: "Platforms",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Cancellations_OrderItemId",
