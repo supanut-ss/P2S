@@ -27,7 +27,7 @@ public class DailyFinanceSnapshotService : IDailyFinanceSnapshotService
         // "Outstanding" reimbursement — a running balance as of this snapshot, not scoped to
         // orders placed on this particular day (a reimbursement can bundle older orders).
         var totalReimbursementPending = await _db.Reimbursements
-            .Where(r => r.Status != ReimbursementStatus.Paid)
+            .Where(r => r.Status == ReimbursementStatus.Pending || r.Status == ReimbursementStatus.Approved)
             .SumAsync(r => (decimal?)r.TotalAmount, cancellationToken) ?? 0m;
 
         // Rounded explicitly: MySQL widens the scale of SUM(int * decimal(18,2)) beyond 2

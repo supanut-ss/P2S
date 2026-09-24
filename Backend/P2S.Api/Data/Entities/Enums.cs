@@ -4,21 +4,30 @@ public enum PurchaseOrderStatus
 {
     Ordered,
     PaidByStaff,
-    Reimbursed
+    Reimbursed,
+    PaidByCompany
 }
 
 public enum OrderItemStatus
 {
     Pending,
     Arrived,
-    Cancelled
+    Cancelled,
+    Returned
+}
+
+public enum PaymentSource
+{
+    StaffAdvance,
+    CompanyDirect
 }
 
 public enum ReimbursementStatus
 {
     Pending,
     Approved,
-    Paid
+    Paid,
+    Voided
 }
 
 public enum InventoryItemStatus

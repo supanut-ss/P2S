@@ -25,7 +25,11 @@ public class InventoryController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<InventoryItemResponse>>> List([FromQuery] string? status, [FromQuery] int? productId, CancellationToken ct)
     {
-        var query = _db.InventoryItems.Include(i => i.Product).AsQueryable();
+        var query = _db.InventoryItems
+            .Include(i => i.Product)
+            .Include(i => i.OrderItem).ThenInclude(o => o.PurchaseOrder).ThenInclude(o => o.Platform)
+            .Include(i => i.OrderItem).ThenInclude(o => o.PurchaseOrder).ThenInclude(o => o.OrderedByUser)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InventoryItemStatus>(status, out var parsedStatus))
         {
@@ -36,6 +40,8 @@ public class InventoryController : ControllerBase
         var items = await query.OrderByDescending(i => i.ReceivedAt).ToListAsync(ct);
         return Ok(items.Select(i => new InventoryItemResponse(
             i.Id, i.ProductId, i.Product.Name, i.Product.SkuCode, i.QtyReceived, i.QtyOnHand,
+            i.OrderItemId, i.OrderItem.PurchaseOrder.Platform.Code, i.OrderItem.PurchaseOrder.PlatformOrderNo,
+            i.OrderItem.PurchaseOrder.OrderedByUserId, i.OrderItem.PurchaseOrder.OrderedByUser.Username,
             i.CostPerUnit, i.Status.ToString(), i.ReceivedAt)).ToList());
     }
 

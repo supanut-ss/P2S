@@ -182,3 +182,11 @@ P2S/                                    ← D:\GitSource\P2S (ไม่ใช่
 - [ ] ผูก 6 หน้าจอ placeholder เข้ากับ controllers จริงด้านบน
 - [ ] รัน deploy script จริงครั้งแรก — ต้องยืนยัน win-x86 RID กับ Plesk host ก่อน, ต้องมี FTP credentials + connection string จริง + JWT signing key production (ห้ามใช้ค่า dev ซ้ำ)
 - [ ] ตั้งค่า auto-merge/CI ถ้าต้องการ (ยังไม่ได้ตั้ง)
+
+## 10. Financial controls and returns update (2026-09-24)
+
+- An order number is unique within its platform; the same number may exist on another platform. Startup checks existing data before applying the unique index and reports duplicates without deleting records.
+- Payment records retain the actual paid amount, payment source, payer, recorder, timestamp, and optional receipt. Staff advances are distinguished from company-direct payments, and reimbursement claims use actual paid amounts less settled refunds.
+- Finance can correct an order's actual paid amount while its reimbursement is Pending or Approved. Each correction stores the previous and new amount, actor, timestamp, and reason, adjusts the staff ledger, and returns an Approved request to Pending for re-approval; paid requests are locked.
+- Refund cases support partial quantities and amounts, retain reporter/resolver audit data, and block reimbursement while unresolved. Returning goods to a supplier reduces the inventory lot and order-line available quantity; returned stock can never exceed the quantity still on hand.
+- A purchase order can be claimed by only one reimbursement. Optimistic concurrency and database unique indexes protect parallel payment, return, and reimbursement actions.

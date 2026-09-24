@@ -20,3 +20,16 @@ export async function payReimbursement(id: number): Promise<ReimbursementRespons
   const { data } = await apiClient.post<ReimbursementResponse>(`/api/reimbursements/${id}/pay`);
   return data;
 }
+
+export async function correctOrderPaymentAmount(
+  reimbursementId: number,
+  purchaseOrderId: number,
+  actualPaidAmount: number,
+  reason: string,
+): Promise<ReimbursementResponse> {
+  const { data } = await apiClient.put<ReimbursementResponse>(
+    `/api/reimbursements/${reimbursementId}/orders/${purchaseOrderId}/payment-amount`,
+    { actualPaidAmount, reason },
+  );
+  return data;
+}

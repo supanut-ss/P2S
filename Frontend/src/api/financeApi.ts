@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { DailyFinanceSnapshotResponse } from '../types/models';
+import type { DailyFinanceSnapshotResponse, StaffBalanceResponse } from '../types/models';
 
 export async function getLatestSnapshot(): Promise<DailyFinanceSnapshotResponse | null> {
   try {
@@ -13,6 +13,11 @@ export async function getLatestSnapshot(): Promise<DailyFinanceSnapshotResponse 
 
 export async function runSnapshotNow(): Promise<DailyFinanceSnapshotResponse> {
   const { data } = await apiClient.post<DailyFinanceSnapshotResponse>('/api/finance/snapshot/run');
+  return data;
+}
+
+export async function getStaffBalances(): Promise<StaffBalanceResponse[]> {
+  const { data } = await apiClient.get<StaffBalanceResponse[]>('/api/finance/staff-balances');
   return data;
 }
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using P2S.Api.Data;
+using P2S.Api.Data.Entities;
 using P2S.Api.Dtos;
 using P2S.Api.Services;
 
@@ -57,5 +58,26 @@ public class FinanceController : ControllerBase
             snapshot.TotalReimbursementPending,
             snapshot.TotalInventoryValueToday,
             snapshot.OpenCancellationsCount));
+    }
+
+    [HttpGet("staff-balances")]
+    [Authorize(Roles = "finance,admin")]
+    public async Task<ActionResult<List<StaffBalanceResponse>>> GetStaffBalances(CancellationToken cancellationToken)
+    {
+        var balances = await _db.StaffLedgerEntries
+            .GroupBy(entry => new { entry.UserId, entry.User.Username, entry.User.FullName })
+            .Select(group => new StaffBalanceResponse(
+                group.Key.UserId,
+                group.Key.Username,
+                group.Key.FullName,
+                group.Sum(entry => entry.Amount),
+                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.AdvancePaid ? entry.Amount : 0m),
+                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.Reimbursed ? -entry.Amount : 0m),
+                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.RefundDue || entry.EntryType == StaffLedgerEntryType.RefundSettled ? -entry.Amount : 0m),
+                group.Sum(entry => entry.EntryType == StaffLedgerEntryType.Adjustment ? entry.Amount : 0m)))
+            .OrderByDescending(balance => balance.Balance)
+            .ToListAsync(cancellationToken);
+
+        return Ok(balances);
     }
 }

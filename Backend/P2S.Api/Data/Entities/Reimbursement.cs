@@ -12,7 +12,12 @@ public class Reimbursement
 
     public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ApprovedAt { get; set; }
+    public int? ApprovedByUserId { get; set; }
+    public User? ApprovedByUser { get; set; }
     public DateTime? PaidAt { get; set; }
+    public int? PaidByUserId { get; set; }
+    public User? PaidByUser { get; set; }
+    public uint RowVersion { get; set; }
 
     public ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
     public ICollection<Cancellation> Cancellations { get; set; } = new List<Cancellation>();

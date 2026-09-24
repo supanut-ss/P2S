@@ -208,6 +208,19 @@ public class MasterDataController : ControllerBase
         return Ok(users);
     }
 
+    [HttpGet("users/payment-payers")]
+    [Authorize(Roles = "staff,admin")]
+    public async Task<ActionResult<List<PaymentPayerResponse>>> GetPaymentPayers(CancellationToken ct)
+    {
+        var users = await _db.Users
+            .Where(user => user.IsActive)
+            .Include(user => user.Role)
+            .OrderBy(user => user.FullName)
+            .Select(user => new PaymentPayerResponse(user.Id, user.Username, user.FullName, user.Role.Name))
+            .ToListAsync(ct);
+        return Ok(users);
+    }
+
     [HttpPost("users")]
     [Authorize(Roles = "admin")]
     public async Task<ActionResult<UserResponse>> CreateUser(CreateUserRequest request, CancellationToken ct)
@@ -257,8 +270,11 @@ public class MasterDataController : ControllerBase
         if (user is null) return NotFound();
 
         bool hasUsage = await _db.PurchaseOrders.AnyAsync(o => o.OrderedByUserId == id, ct)
+                     || await _db.PurchaseOrders.AnyAsync(o => o.PaymentPayerUserId == id || o.PaymentRecordedByUserId == id, ct)
                      || await _db.Deliveries.AnyAsync(d => d.ScannedByUserId == id, ct)
                      || await _db.Reimbursements.AnyAsync(r => r.RequestedByUserId == id, ct)
+                     || await _db.Reimbursements.AnyAsync(r => r.ApprovedByUserId == id || r.PaidByUserId == id, ct)
+                     || await _db.Cancellations.AnyAsync(c => c.ReportedByUserId == id || c.ResolvedByUserId == id, ct)
                      || await _db.InventoryWithdrawals.AnyAsync(w => w.WithdrawnByUserId == id, ct)
                      || await _db.StaffLedgerEntries.AnyAsync(e => e.UserId == id, ct);
         if (hasUsage)

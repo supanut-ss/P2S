@@ -68,6 +68,45 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<P2SDbContext>();
+    var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+    var addsFinanceConstraints = pendingMigrations.Any(migration =>
+        migration.EndsWith("_FinancialAuditAndReturnsAndUniquePlatformOrderNo", StringComparison.Ordinal) ||
+        migration.EndsWith("_UniquePurchaseOrderReimbursementClaim", StringComparison.Ordinal));
+    if (addsFinanceConstraints)
+    {
+        var appliedMigrations = await db.Database.GetAppliedMigrationsAsync();
+        if (appliedMigrations.Contains("20260922070555_InitialCreate", StringComparer.Ordinal))
+        {
+            var duplicateOrderNumbers = await db.PurchaseOrders
+                .GroupBy(order => new { order.PlatformId, OrderNo = order.PlatformOrderNo.Trim() })
+                .Where(group => group.Count() > 1)
+                .Select(group => new { group.Key.PlatformId, group.Key.OrderNo, Count = group.Count() })
+                .ToListAsync();
+
+            if (duplicateOrderNumbers.Count > 0)
+            {
+                var conflicts = string.Join("; ", duplicateOrderNumbers.Select(group =>
+                    $"platformId={group.PlatformId}, orderNo='{group.OrderNo}' ({group.Count} records)"));
+                throw new InvalidOperationException(
+                    $"Cannot apply the unique platform order number migration until duplicate historical orders are reviewed and resolved: {conflicts}");
+            }
+
+            var duplicateClaims = await db.Reimbursements
+                .SelectMany(reimbursement => reimbursement.PurchaseOrders.Select(order => order.Id))
+                .GroupBy(orderId => orderId)
+                .Where(group => group.Count() > 1)
+                .Select(group => new { PurchaseOrderId = group.Key, Count = group.Count() })
+                .ToListAsync();
+            if (duplicateClaims.Count > 0)
+            {
+                var conflicts = string.Join("; ", duplicateClaims.Select(group =>
+                    $"purchaseOrderId={group.PurchaseOrderId} ({group.Count} reimbursement records)"));
+                throw new InvalidOperationException(
+                    $"Cannot apply the one-claim-per-order migration until duplicate historical claims are reviewed: {conflicts}");
+            }
+        }
+    }
+
     await db.Database.MigrateAsync();
 }
 

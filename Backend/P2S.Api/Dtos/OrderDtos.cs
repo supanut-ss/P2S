@@ -10,6 +10,7 @@ public record OrderItemResponse(
     int Qty,
     decimal UnitPrice,
     string Status,
+    int ReturnedQty,
     string? TrackingNo,
     string? Courier,
     DateTime? ArrivedAt,
@@ -25,7 +26,23 @@ public record PurchaseOrderResponse(
     DateTime OrderedAt,
     int OrderedByUserId,
     string OrderedByUsername,
+    decimal? ActualPaidAmount,
+    decimal? ReimbursableAmount,
+    string? PaymentSource,
+    int? PaymentPayerUserId,
+    string? PaymentPayerUsername,
+    string? PaymentRecordedByUsername,
+    DateTime? PaidAt,
+    bool HasPaymentEvidence,
     List<OrderItemResponse> Items
 );
 
 public record SetTrackingRequest(string TrackingNo, string? Courier);
+
+public sealed class MarkOrderPaidRequest
+{
+    public string PaymentSource { get; set; } = string.Empty;
+    public decimal ActualPaidAmount { get; set; }
+    public int? PaymentPayerUserId { get; set; }
+    public IFormFile? Evidence { get; set; }
+}

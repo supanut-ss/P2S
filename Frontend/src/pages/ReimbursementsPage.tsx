@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, Box, Button, Card, CardContent, Checkbox, LinearProgress, Paper, Stack, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Typography,
+  Alert, Box, Button, Card, CardContent, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
+  LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { reimbursementStatusLabel } from '../theme/tokens';
-import { approveReimbursement, createReimbursement, listReimbursements, payReimbursement } from '../api/reimbursementsApi';
-import { listOrders } from '../api/ordersApi';
-import type { PurchaseOrderResponse, ReimbursementResponse } from '../types/models';
+import { approveReimbursement, correctOrderPaymentAmount, createReimbursement, listReimbursements, payReimbursement } from '../api/reimbursementsApi';
+import { getPaymentEvidence, listOrders } from '../api/ordersApi';
+import { getStaffBalances } from '../api/financeApi';
+import type { PurchaseOrderResponse, ReimbursementResponse, StaffBalanceResponse } from '../types/models';
 import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
@@ -22,6 +23,13 @@ export function ReimbursementsPage() {
   const [reimbursements, setReimbursements] = useState<ReimbursementResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [eligibleOrders, setEligibleOrders] = useState<PurchaseOrderResponse[]>([]);
+  const [staffBalances, setStaffBalances] = useState<StaffBalanceResponse[]>([]);
+  const [auditTarget, setAuditTarget] = useState<ReimbursementResponse | null>(null);
+  const [editingPayment, setEditingPayment] = useState<{ reimbursementId: number; purchaseOrderId: number; platformOrderNo: string } | null>(null);
+  const [paymentAmountDraft, setPaymentAmountDraft] = useState('');
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const [savingCorrection, setSavingCorrection] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -33,14 +41,16 @@ export function ReimbursementsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [reimbursementsData, ordersData] = await Promise.all([
+      const [reimbursementsData, ordersData, balancesData] = await Promise.all([
         listReimbursements(statusFilter || undefined),
         canRequestReimbursement
           ? listOrders({ status: 'PaidByStaff', excludeRequested: true })
           : Promise.resolve<PurchaseOrderResponse[]>([]),
+        canReviewReimbursements ? getStaffBalances() : Promise.resolve<StaffBalanceResponse[]>([]),
       ]);
       setReimbursements(reimbursementsData);
       setEligibleOrders(ordersData);
+      setStaffBalances(balancesData);
     } catch {
       setError('โหลดข้อมูลไม่สำเร็จ');
     } finally {
@@ -104,7 +114,65 @@ export function ReimbursementsPage() {
     }
   };
 
-  const selectedTotal = eligibleOrders.filter((o) => selected.has(o.id)).reduce((sum, o) => sum + o.totalAmount, 0);
+  const selectedTotal = eligibleOrders.filter((o) => selected.has(o.id)).reduce((sum, o) => sum + (o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount), 0);
+
+  const downloadEvidence = async (orderId: number) => {
+    try {
+      const blob = await getPaymentEvidence(orderId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payment-evidence-${orderId}`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setError('เปิดหลักฐานการจ่ายไม่สำเร็จ');
+    }
+  };
+
+  const openPaymentCorrection = (reimbursementId: number, orderId: number, orderNo: string, amount: number | null) => {
+    setEditingPayment({ reimbursementId, purchaseOrderId: orderId, platformOrderNo: orderNo });
+    setPaymentAmountDraft(String(amount ?? 0));
+    setCorrectionReason('');
+    setCorrectionError(null);
+  };
+
+  const handleCorrectPaymentAmount = async () => {
+    if (!editingPayment) return;
+    const amount = Number(paymentAmountDraft);
+    if (!paymentAmountDraft.trim() || !Number.isFinite(amount) || amount < 0 || Number(amount.toFixed(2)) !== amount) {
+      setCorrectionError('กรุณาระบุยอดตั้งแต่ 0 บาท และมีทศนิยมไม่เกิน 2 ตำแหน่ง');
+      return;
+    }
+    if (!correctionReason.trim()) {
+      setCorrectionError('กรุณาระบุเหตุผลที่แก้ไขยอด');
+      return;
+    }
+
+    setSavingCorrection(true);
+    setCorrectionError(null);
+    try {
+      const wasApproved = auditTarget?.id === editingPayment.reimbursementId && auditTarget.status === 'Approved';
+      const updated = await correctOrderPaymentAmount(
+        editingPayment.reimbursementId,
+        editingPayment.purchaseOrderId,
+        amount,
+        correctionReason.trim(),
+      );
+      setReimbursements((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setAuditTarget(updated);
+      setEditingPayment(null);
+      setMessage(wasApproved
+        ? 'แก้ยอดแล้ว คำขอกลับไปรออนุมัติใหม่'
+        : 'แก้ยอดจ่ายจริงและบันทึกประวัติแล้ว');
+      await load();
+    } catch (err: unknown) {
+      const responseMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setCorrectionError(responseMessage ?? 'แก้ยอดจ่ายจริงไม่สำเร็จ');
+    } finally {
+      setSavingCorrection(false);
+    }
+  };
 
   return (
     <>
@@ -119,6 +187,38 @@ export function ReimbursementsPage() {
       {loading && <LinearProgress aria-label="กำลังโหลดคำขอเบิกเงิน" sx={{ mb: 2 }} />}
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message}</Alert>}
 
+      {canReviewReimbursements && (
+        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>ยอดค้างแยกตามพนักงาน</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>ยอดบวก = บริษัทค้างจ่ายพนักงาน · ยอดลบ = พนักงานต้องคืนบริษัท</Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead><TableRow>
+                <TableCell>พนักงาน</TableCell>
+                <TableCell align="right">สำรองจ่าย</TableCell>
+                <TableCell align="right">บริษัทจ่ายคืน</TableCell>
+                <TableCell align="right">คืน/ปรับยอดค้างสุทธิ</TableCell>
+                <TableCell align="right">ปรับยอดก่อนเบิก</TableCell>
+                <TableCell align="right">ยอดค้างสุทธิ</TableCell>
+              </TableRow></TableHead>
+              <TableBody>
+                {staffBalances.map((balance) => (
+                  <TableRow key={balance.userId}>
+                    <TableCell>{balance.fullName} ({balance.username})</TableCell>
+                    <TableCell align="right">{thb.format(balance.totalAdvanced)}</TableCell>
+                    <TableCell align="right">{thb.format(balance.totalReimbursed)}</TableCell>
+                    <TableCell align="right">{thb.format(balance.totalRefundDue)}</TableCell>
+                    <TableCell align="right">{thb.format(balance.totalAdjustments)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>{thb.format(balance.balance)}</TableCell>
+                  </TableRow>
+                ))}
+                {!loading && staffBalances.length === 0 && <TableRow><TableCell colSpan={6} align="center">ยังไม่มีรายการค้าง</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
       {canRequestReimbursement && (
         <>
       <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>ออเดอร์ที่คุณสำรองจ่ายและรอขอเบิก</Typography>
@@ -128,8 +228,8 @@ export function ReimbursementsPage() {
             <TableRow>
               <TableCell padding="checkbox" />
               <TableCell>แพลตฟอร์ม</TableCell>
-              <TableCell>เลขออเดอร์</TableCell>
-              <TableCell align="right">ยอดรวม</TableCell>
+              <TableCell>เลขออเดอร์ / สินค้า</TableCell>
+              <TableCell align="right">ยอดเบิกสุทธิ</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -137,8 +237,18 @@ export function ReimbursementsPage() {
               <TableRow key={o.id} hover onClick={() => toggleSelect(o.id)} sx={{ cursor: 'pointer' }}>
                 <TableCell padding="checkbox"><Checkbox checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)} onClick={(event) => event.stopPropagation()} slotProps={{ input: { 'aria-label': `เลือกออเดอร์ ${o.platformOrderNo}` } }} /></TableCell>
                 <TableCell>{o.platformCode}</TableCell>
-                <TableCell>{o.platformOrderNo}</TableCell>
-                <TableCell align="right">{thb.format(o.totalAmount)}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.platformOrderNo}</Typography>
+                  <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+                    {o.items.map((item) => (
+                      <Typography key={item.id} variant="caption" color="text.secondary">
+                        {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
+                        {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </TableCell>
+                <TableCell align="right">{thb.format(o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount)}</TableCell>
               </TableRow>
             ))}
             {!loading && eligibleOrders.length === 0 && (
@@ -156,8 +266,16 @@ export function ReimbursementsPage() {
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{o.platformOrderNo}</Typography>
                   <Typography variant="body2" color="text.secondary">{o.platformCode}</Typography>
+                  <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+                    {o.items.map((item) => (
+                      <Typography key={item.id} variant="caption" color="text.secondary">
+                        {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
+                        {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
+                      </Typography>
+                    ))}
+                  </Stack>
                 </Box>
-                <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.totalAmount)}</Typography>
+                <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount)}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -205,6 +323,7 @@ export function ReimbursementsPage() {
                 <TableCell><StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} /></TableCell>
                 <TableCell>{new Date(r.requestedAt).toLocaleDateString('th-TH')}</TableCell>
                 <TableCell align="right">
+                  <Button size="small" onClick={() => setAuditTarget(r)}>ตรวจสอบ</Button>
                   {canReviewReimbursements && r.status === 'Pending' && (
                     <Button size="small" disabled={busyId !== null} onClick={() => handleApprove(r.id)}>อนุมัติ</Button>
                   )}
@@ -229,6 +348,7 @@ export function ReimbursementsPage() {
                 <StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} />
               </Box>
               <Typography sx={{ mb: 1.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(r.totalAmount)}</Typography>
+              <Button fullWidth variant="outlined" sx={{ mb: 1, minHeight: 44 }} onClick={() => setAuditTarget(r)}>ตรวจสอบรายละเอียด</Button>
               {canReviewReimbursements && r.status === 'Pending' && <Button fullWidth variant="outlined" disabled={busyId !== null} onClick={() => handleApprove(r.id)} sx={{ minHeight: 44 }}>อนุมัติ</Button>}
               {canReviewReimbursements && r.status === 'Approved' && <Button fullWidth variant="contained" disabled={busyId !== null} onClick={() => handlePay(r.id)} sx={{ minHeight: 44 }}>จ่ายเงิน</Button>}
             </CardContent>
@@ -236,6 +356,129 @@ export function ReimbursementsPage() {
         ))}
         {!loading && reimbursements.length === 0 && <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>ไม่มีคำขอเบิกเงิน</Typography>}
       </Stack>
+      <Dialog open={auditTarget !== null} onClose={() => setAuditTarget(null)} maxWidth="md" fullWidth>
+        <DialogTitle>ตรวจสอบคำขอ #{auditTarget?.id}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+          {auditTarget && (
+            <>
+              <Typography variant="body2">ผู้ขอเบิก: <strong>{auditTarget.requestedByUsername}</strong> · ยอดคำขอ: <strong>{thb.format(auditTarget.totalAmount)}</strong></Typography>
+              <Typography variant="body2" color="text.secondary">
+                อนุมัติโดย {auditTarget.approvedByUsername ?? '—'}{auditTarget.approvedAt ? ` (${new Date(auditTarget.approvedAt).toLocaleString('th-TH')})` : ''}
+                {' · '}จ่ายโดย {auditTarget.paidByUsername ?? '—'}{auditTarget.paidAt ? ` (${new Date(auditTarget.paidAt).toLocaleString('th-TH')})` : ''}
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead><TableRow>
+                    <TableCell>ออเดอร์ / รายการสินค้า</TableCell>
+                    <TableCell>ผู้จ่าย / วิธีจ่าย</TableCell>
+                    <TableCell align="right">ยอดสินค้า</TableCell>
+                    <TableCell align="right">จ่ายจริง</TableCell>
+                    <TableCell align="right">ยอดเบิกสุทธิ</TableCell>
+                    <TableCell align="right">หลักฐาน</TableCell>
+                  </TableRow></TableHead>
+                  <TableBody>
+                    {auditTarget.purchaseOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{order.platformCode} · {order.platformOrderNo}</Typography>
+                          <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+                            {order.items.map((item) => (
+                              <Typography key={item.id} variant="caption" color="text.secondary">
+                                {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
+                                {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
+                              </Typography>
+                            ))}
+                          </Stack>
+                        </TableCell>
+                        <TableCell>{order.paymentPayerUsername ?? '—'} · {order.paymentSource === 'StaffAdvance' ? 'สำรองจ่าย' : order.paymentSource === 'CompanyDirect' ? 'บริษัทจ่ายตรง' : 'ข้อมูลเดิม'}<br /><Typography variant="caption" color="text.secondary">บันทึกโดย {order.paymentRecordedByUsername ?? '—'}</Typography></TableCell>
+                        <TableCell align="right">{thb.format(order.orderItemAmount)}</TableCell>
+                        <TableCell align="right">
+                          <Stack spacing={0.5} sx={{ alignItems: 'flex-end' }}>
+                            <Typography variant="body2">{order.actualPaidAmount === null ? '—' : thb.format(order.actualPaidAmount)}</Typography>
+                            {canReviewReimbursements && ['Pending', 'Approved'].includes(auditTarget.status) && order.paymentSource === 'StaffAdvance' && (
+                              <Button
+                                size="small"
+                                disabled={savingCorrection || busyId !== null}
+                                onClick={() => openPaymentCorrection(
+                                  auditTarget.id,
+                                  order.id,
+                                  order.platformOrderNo,
+                                  order.actualPaidAmount ?? order.orderItemAmount,
+                                )}
+                              >แก้ยอด</Button>
+                            )}
+                            {order.amountCorrections.length > 0 && (
+                              <Stack spacing={0.5} sx={{ maxWidth: 260, textAlign: 'right' }}>
+                                {order.amountCorrections.map((correction) => (
+                                  <Box key={correction.id}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                      {thb.format(correction.previousActualPaidAmount)} → {thb.format(correction.correctedActualPaidAmount)} · {correction.correctedByUsername} · {new Date(correction.correctedAt).toLocaleString('th-TH')}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>เหตุผล: {correction.reason}</Typography>
+                                    {correction.previousRequestStatus === 'Approved' && correction.previousApprovedByUsername && (
+                                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>อนุมัติเดิมโดย {correction.previousApprovedByUsername}</Typography>
+                                    )}
+                                  </Box>
+                                ))}
+                              </Stack>
+                            )}
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">{thb.format(order.reimbursableAmount)}</TableCell>
+                        <TableCell align="right">
+                          {order.hasPaymentEvidence
+                            ? <Button size="small" onClick={() => void downloadEvidence(order.id)}>เปิด</Button>
+                            : <Typography variant="caption" color="text.secondary">ไม่มี</Typography>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {auditTarget.purchaseOrders.length === 0 && <TableRow><TableCell colSpan={6} align="center">ไม่พบรายการออเดอร์</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions><Button onClick={() => setAuditTarget(null)}>ปิด</Button></DialogActions>
+      </Dialog>
+      <Dialog
+        open={editingPayment !== null}
+        onClose={() => { if (!savingCorrection) setEditingPayment(null); }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>แก้ยอดจ่ายจริง · {editingPayment?.platformOrderNo}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+          {auditTarget?.status === 'Approved' && (
+            <Alert severity="info">เมื่อบันทึกแล้ว คำขอจะกลับไปรออนุมัติใหม่</Alert>
+          )}
+          {correctionError && <Alert severity="error">{correctionError}</Alert>}
+          <TextField
+            autoFocus
+            required
+            label="ยอดจ่ายจริงใหม่"
+            type="number"
+            value={paymentAmountDraft}
+            onChange={(event) => setPaymentAmountDraft(event.target.value)}
+            slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+          />
+          <TextField
+            required
+            multiline
+            minRows={2}
+            label="เหตุผลที่แก้ไข"
+            value={correctionReason}
+            onChange={(event) => setCorrectionReason(event.target.value.slice(0, 500))}
+            helperText={`${correctionReason.length}/500`}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={savingCorrection} onClick={() => setEditingPayment(null)}>ยกเลิก</Button>
+          <Button variant="contained" disabled={savingCorrection} onClick={() => void handleCorrectPaymentAmount()}>
+            {savingCorrection ? 'กำลังบันทึก…' : 'บันทึกยอดใหม่'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

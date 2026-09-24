@@ -10,6 +10,8 @@ public class OrderItem
     public Product Product { get; set; } = null!;
 
     public int Qty { get; set; }
+    public int ReturnedQty { get; set; }
+    public uint RowVersion { get; set; }
     public decimal UnitPrice { get; set; }
     public OrderItemStatus Status { get; set; } = OrderItemStatus.Pending;
 
@@ -22,5 +24,5 @@ public class OrderItem
 
     public InventoryItem? InventoryItem { get; set; }
     public Delivery? Delivery { get; set; }
-    public Cancellation? Cancellation { get; set; }
+    public ICollection<Cancellation> Cancellations { get; set; } = new List<Cancellation>();
 }

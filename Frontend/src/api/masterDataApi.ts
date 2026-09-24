@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { PlatformResponse, ProductResponse, UserResponse, WithdrawalReasonResponse } from '../types/models';
+import type { PaymentPayerResponse, PlatformResponse, ProductResponse, UserResponse, WithdrawalReasonResponse } from '../types/models';
 
 export async function getProducts(): Promise<ProductResponse[]> {
   const { data } = await apiClient.get<ProductResponse[]>('/api/products');
@@ -48,6 +48,11 @@ export async function updateWithdrawalReason(id: number, payload: { name: string
 
 export async function getUsers(): Promise<UserResponse[]> {
   const { data } = await apiClient.get<UserResponse[]>('/api/users');
+  return data;
+}
+
+export async function getPaymentPayers(): Promise<PaymentPayerResponse[]> {
+  const { data } = await apiClient.get<PaymentPayerResponse[]>('/api/users/payment-payers');
   return data;
 }
 

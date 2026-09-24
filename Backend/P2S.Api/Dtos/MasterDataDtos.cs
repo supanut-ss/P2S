@@ -15,5 +15,6 @@ public record CreateWithdrawalReasonRequest(string Name);
 public record UpdateWithdrawalReasonRequest(string Name, bool IsActive);
 
 public record UserResponse(int Id, string Username, string FullName, string Role, bool IsActive, string? CardLast4);
+public record PaymentPayerResponse(int Id, string Username, string FullName, string Role);
 public record CreateUserRequest(string Username, string Password, string FullName, string Role, string? CardLast4);
 public record UpdateUserRequest(string FullName, bool IsActive, string? CardLast4);

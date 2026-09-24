@@ -9,3 +9,8 @@ export async function listCancellations(status?: string): Promise<CancellationRe
 export async function resolveCancellation(id: number, outcome: 'Refunded' | 'Adjusted'): Promise<void> {
   await apiClient.post(`/api/cancellations/${id}/resolve`, { outcome });
 }
+
+export async function createSupplierReturn(payload: { inventoryItemId: number; quantity: number; refundAmount: number; note?: string }): Promise<CancellationResponse> {
+  const { data } = await apiClient.post<CancellationResponse>('/api/cancellations/returns', payload);
+  return data;
+}

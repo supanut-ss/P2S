@@ -22,8 +22,18 @@ export async function getOrder(id: number): Promise<PurchaseOrderResponse> {
   return data;
 }
 
-export async function markPaid(id: number): Promise<PurchaseOrderResponse> {
-  const { data } = await apiClient.post<PurchaseOrderResponse>(`/api/orders/${id}/mark-paid`);
+export async function markPaid(id: number, payload: { paymentSource: 'StaffAdvance' | 'CompanyDirect'; actualPaidAmount: number; paymentPayerUserId: number; evidence?: File }): Promise<PurchaseOrderResponse> {
+  const formData = new FormData();
+  formData.append('PaymentSource', payload.paymentSource);
+  formData.append('ActualPaidAmount', String(payload.actualPaidAmount));
+  formData.append('PaymentPayerUserId', String(payload.paymentPayerUserId));
+  if (payload.evidence) formData.append('Evidence', payload.evidence);
+  const { data } = await apiClient.post<PurchaseOrderResponse>(`/api/orders/${id}/mark-paid`, formData);
+  return data;
+}
+
+export async function getPaymentEvidence(id: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/api/orders/${id}/payment-evidence`, { responseType: 'blob' });
   return data;
 }
 

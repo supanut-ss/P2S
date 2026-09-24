@@ -30,6 +30,7 @@ export function ScanPage() {
   // fill that order item's tracking field.
   const [scanTarget, setScanTarget] = useState<'search' | number | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PendingOrderItemResponse | null>(null);
+  const [cancelRefundAmount, setCancelRefundAmount] = useState('0');
   const [cancelling, setCancelling] = useState(false);
   const busyItemsRef = useRef(new Set<number>());
   const [busyItems, setBusyItems] = useState<Set<number>>(new Set());
@@ -88,15 +89,19 @@ export function ScanPage() {
     }
   };
 
-  const handleConfirm = async (item: PendingOrderItemResponse) => {
+  const handleConfirm = async (
+    item: PendingOrderItemResponse,
+    scannedCodeOverride?: string,
+    matchMethodOverride?: DeliveryMatchMethod,
+  ) => {
     if (!beginItemAction(item.orderItemId)) return;
-    const scannedValue = trackingInputs[item.orderItemId]?.trim();
+    const scannedValue = (scannedCodeOverride ?? trackingInputs[item.orderItemId])?.trim();
     if (!scannedValue) {
       setError('กรอกหรือสแกนเลข tracking ก่อนยืนยันรับของ');
       endItemAction(item.orderItemId);
       return;
     }
-    const matchMethod: DeliveryMatchMethod = trackingSources[item.orderItemId] === 'scanned' ? 'Barcode' : 'ManualTrackingEntry';
+    const matchMethod = matchMethodOverride ?? (trackingSources[item.orderItemId] === 'scanned' ? 'Barcode' : 'ManualTrackingEntry');
     try {
       await confirmArrived(item.orderItemId, scannedValue, matchMethod);
       setMessage(`รับของ ${item.productName} เข้าคลังแล้ว`);
@@ -112,7 +117,7 @@ export function ScanPage() {
     if (!beginItemAction(item.orderItemId)) return;
     setCancelling(true);
     try {
-      await cancelOrderItem(item.orderItemId, 'ร้านยกเลิก/ของไม่มา');
+      await cancelOrderItem(item.orderItemId, 'ร้านยกเลิก/ของไม่มา', Number(cancelRefundAmount));
       setMessage(`ยกเลิก ${item.productName} แล้ว`);
       setCancelTarget(null);
       await load(search);
@@ -129,16 +134,34 @@ export function ScanPage() {
       setSearch(code);
       load(code);
     } else if (typeof scanTarget === 'number') {
-      setTrackingInputs((prev) => ({ ...prev, [scanTarget]: code }));
+      const scannedCode = code.trim();
+      const targetItem = items.find((item) => item.orderItemId === scanTarget);
+      setTrackingInputs((prev) => ({ ...prev, [scanTarget]: scannedCode }));
       setTrackingSources((prev) => ({ ...prev, [scanTarget]: 'scanned' }));
+      setError(null);
+      setScanTarget(null);
+
+      if (!targetItem) {
+        setError('ไม่พบรายการนี้แล้ว กรุณาโหลดรายการใหม่');
+        return;
+      }
+
+      if (targetItem.trackingNo && targetItem.trackingNo.trim().toUpperCase() !== scannedCode.toUpperCase()) {
+        setError(`เลข tracking ที่สแกนไม่ตรงกับ ${targetItem.productName} กรุณาตรวจสอบรายการ`);
+        return;
+      }
+
+      void handleConfirm(targetItem, scannedCode, 'Barcode');
+      return;
     }
     setScanTarget(null);
+    // The scanner closes on detection; the selected item and current list remain fixed while open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanTarget]);
+  }, [scanTarget, items]);
 
   return (
     <>
-      <PageHeader title="สแกนรับของ" subtitle="สแกนบาร์โค้ด/เลข tracking ของร้าน แล้ว confirm รับของ — ถ้าสแกนไม่ติด ค้นด้วยเลขออเดอร์แทนได้" />
+      <PageHeader title="สแกนรับของ" subtitle="เลือกสินค้าแล้วสแกนเลข tracking เพื่อรับเข้าคลังอัตโนมัติ; กรอกเลขเองแล้วกดยืนยันรับของ" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดรายการรับของ" sx={{ mb: 2 }} />}
@@ -183,12 +206,12 @@ export function ScanPage() {
                   }}
                   sx={{ minWidth: 0 }}
                 />
-                <IconButton color="primary" disabled={busyItems.has(item.orderItemId)} onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกนบาร์โค้ด" sx={{ minWidth: 44, minHeight: 44 }}>
+                <IconButton color="primary" disabled={busyItems.has(item.orderItemId)} onClick={() => setScanTarget(item.orderItemId)} aria-label="สแกน tracking แล้วรับสินค้าอัตโนมัติ" sx={{ minWidth: 44, minHeight: 44 }}>
                   <CameraAltIcon fontSize="small" />
                 </IconButton>
                 <Button size="small" variant="outlined" disabled={busyItems.has(item.orderItemId)} onClick={() => handleSaveTracking(item)} sx={{ minHeight: 44, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>บันทึกเลข tracking</Button>
                 <Button size="small" variant="contained" disabled={busyItems.has(item.orderItemId)} onClick={() => handleConfirm(item)} sx={{ minHeight: 44 }}>ยืนยันรับของ</Button>
-                <Button size="small" color="error" disabled={busyItems.has(item.orderItemId)} onClick={() => setCancelTarget(item)} sx={{ minHeight: 44 }}>ยกเลิก/ไม่มา</Button>
+                <Button size="small" color="error" disabled={busyItems.has(item.orderItemId)} onClick={() => { setCancelRefundAmount(String(item.qty * item.unitPrice)); setCancelTarget(item); }} sx={{ minHeight: 44 }}>ยกเลิก/ไม่มา</Button>
               </Box>
             </CardContent>
           </Card>
@@ -208,7 +231,10 @@ export function ScanPage() {
       />
       <Dialog open={cancelTarget !== null} onClose={() => !cancelling && setCancelTarget(null)} maxWidth="xs" fullWidth>
         <DialogTitle>ยืนยันยกเลิกรายการ</DialogTitle>
-        <DialogContent><DialogContentText>ยกเลิก {cancelTarget?.productName} และบันทึกว่าไม่ได้รับของ?</DialogContentText></DialogContent>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <DialogContentText>ยกเลิก {cancelTarget?.productName} และบันทึกว่าไม่ได้รับของ? กรอกยอดคืนเงินที่ต้องติดตามด้วย</DialogContentText>
+          <TextField label="ยอดเงินคืนที่ต้องตาม" type="number" slotProps={{ htmlInput: { min: 0, step: '0.01' } }} value={cancelRefundAmount} onChange={(e) => setCancelRefundAmount(e.target.value)} />
+        </DialogContent>
         <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
           <Button onClick={() => setCancelTarget(null)} disabled={cancelling}>กลับ</Button>
           <Button color="error" variant="contained" disabled={cancelling} onClick={() => cancelTarget && handleCancel(cancelTarget)}>ยืนยันยกเลิก</Button>

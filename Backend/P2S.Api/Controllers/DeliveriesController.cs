@@ -89,10 +89,19 @@ public class DeliveriesController : ControllerBase
             ScannedByUserId = this.CurrentUserId(),
             ScannedAt = DateTime.UtcNow,
         });
-        await _db.SaveChangesAsync(ct);
-
-        var lot = await _inventoryService.ReceiveAsync(orderItem, ct);
-        return Ok(new { inventoryItemId = lot.Id, orderItemId, status = orderItem.Status.ToString() });
+        try
+        {
+            var lot = await _inventoryService.ReceiveAsync(orderItem, ct);
+            return Ok(new { inventoryItemId = lot.Id, orderItemId, status = orderItem.Status.ToString() });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "รายการนี้ถูกรับเข้าคลังพร้อมกัน กรุณาโหลดใหม่" });
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is MySqlConnector.MySqlException { Number: 1062 })
+        {
+            return Conflict(new { message = "รายการนี้ถูกบันทึกการรับสินค้าแล้ว กรุณาโหลดใหม่" });
+        }
     }
 
     /// <summary>Shop cancelled or the item never arrived — does not create an inventory lot,
@@ -110,11 +119,24 @@ public class DeliveriesController : ControllerBase
             return BadRequest(new { message = $"รายการนี้อยู่ในสถานะ {orderItem.Status} แล้ว ไม่ใช่ Pending" });
         }
 
-        orderItem.Status = OrderItemStatus.Cancelled;
-        orderItem.CancelledAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync(ct);
+        if (request.RefundAmount < 0)
+        {
+            return BadRequest(new { message = "ยอดคืนเงินต้องไม่ติดลบ" });
+        }
 
-        await _cancellationService.FlagFromOrderItemCancellationAsync(orderItem, ct);
+        try
+        {
+            await _cancellationService.FlagFromOrderItemCancellationAsync(
+                orderItem, ct, this.CurrentUserId(), request.RefundAmount, request.Note);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "สถานะรายการเปลี่ยนพร้อมกัน กรุณาโหลดใหม่" });
+        }
         return Ok(new { orderItemId, status = orderItem.Status.ToString() });
     }
 }

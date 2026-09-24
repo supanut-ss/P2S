@@ -95,7 +95,7 @@ public class OrdersControllerTests
 
         var controller = CreateController(db, staff.Id, "staff");
 
-        var result = await controller.MarkPaid(otherOrder.Id, CancellationToken.None);
+        var result = await controller.MarkPaid(otherOrder.Id, new MarkOrderPaidRequest(), CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result.Result);
         Assert.Equal(originalStatus, otherOrder.Status);

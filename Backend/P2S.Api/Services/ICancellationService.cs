@@ -11,7 +11,9 @@ public interface ICancellationService
     /// If the order was only PaidByStaff (not yet reimbursed), nothing has actually left the
     /// company yet, so there's nothing to claw back — the item is simply excluded from future
     /// reimbursement requests (see ReimbursementService), no ledger entry needed.</summary>
-    Task FlagFromOrderItemCancellationAsync(OrderItem orderItem, CancellationToken ct);
+    Task FlagFromOrderItemCancellationAsync(OrderItem orderItem, CancellationToken ct, int? reportedByUserId = null, decimal? refundAmount = null, string? note = null);
 
-    Task<Cancellation> ResolveAsync(int cancellationId, CancellationStatus outcome, CancellationToken ct);
+    Task<Cancellation> CreateSupplierReturnAsync(int inventoryItemId, int quantity, decimal refundAmount, string? note, int reportedByUserId, CancellationToken ct);
+
+    Task<Cancellation> ResolveAsync(int cancellationId, CancellationStatus outcome, CancellationToken ct, int? resolvedByUserId = null);
 }

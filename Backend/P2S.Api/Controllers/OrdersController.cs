@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MySqlConnector;
 using P2S.Api.Data;
 using P2S.Api.Data.Entities;
 using P2S.Api.Dtos;
+using P2S.Api.Services;
 
 namespace P2S.Api.Controllers;
 
@@ -27,6 +29,14 @@ public class OrdersController : ControllerBase
         {
             return BadRequest(new { message = "ออเดอร์ต้องมีอย่างน้อย 1 รายการ" });
         }
+        if (request.Items.Any(item => item.Qty <= 0 || item.UnitPrice < 0))
+        {
+            return BadRequest(new { message = "จำนวนสินค้าต้องมากกว่า 0 และราคาต้องไม่ติดลบ" });
+        }
+        if (string.IsNullOrWhiteSpace(request.PlatformOrderNo))
+        {
+            return BadRequest(new { message = "กรอกเลขออเดอร์จากแพลตฟอร์ม" });
+        }
 
         var platform = await _db.Platforms.FindAsync([request.PlatformId], ct);
         if (platform is null) return BadRequest(new { message = "ไม่รู้จัก platform" });
@@ -39,7 +49,7 @@ public class OrdersController : ControllerBase
         {
             PlatformId = request.PlatformId,
             OrderedByUserId = this.CurrentUserId(),
-            PlatformOrderNo = request.PlatformOrderNo,
+            PlatformOrderNo = request.PlatformOrderNo.Trim(),
             Status = PurchaseOrderStatus.Ordered,
             TotalAmount = request.Items.Sum(i => i.Qty * i.UnitPrice),
             OrderedAt = DateTime.UtcNow,
@@ -52,8 +62,20 @@ public class OrdersController : ControllerBase
             Status = OrderItemStatus.Pending,
         }).ToList();
 
+        if (await _db.PurchaseOrders.AnyAsync(o => o.PlatformId == order.PlatformId && o.PlatformOrderNo == order.PlatformOrderNo, ct))
+        {
+            return Conflict(new { message = $"เลขออเดอร์ '{order.PlatformOrderNo}' มีอยู่แล้วในแพลตฟอร์มนี้" });
+        }
+
         _db.PurchaseOrders.Add(order);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is MySqlException { Number: 1062 })
+        {
+            return Conflict(new { message = $"เลขออเดอร์ '{order.PlatformOrderNo}' มีอยู่แล้วในแพลตฟอร์มนี้" });
+        }
 
         return Ok(await ToResponse(order.Id, ct));
     }
@@ -70,7 +92,10 @@ public class OrdersController : ControllerBase
         var query = _db.PurchaseOrders
             .Include(o => o.Platform)
             .Include(o => o.OrderedByUser)
+            .Include(o => o.PaymentPayerUser)
+            .Include(o => o.PaymentRecordedByUser)
             .Include(o => o.OrderItems).ThenInclude(i => i.Product)
+            .Include(o => o.OrderItems).ThenInclude(i => i.Cancellations)
             .AsQueryable();
 
         if (!User.IsInRole("admin"))
@@ -97,7 +122,7 @@ public class OrdersController : ControllerBase
         if (excludeRequested)
         {
             var requestedOrderIds = await _db.Reimbursements
-                .Where(r => r.Status != ReimbursementStatus.Paid)
+                .Where(r => r.Status == ReimbursementStatus.Pending || r.Status == ReimbursementStatus.Approved)
                 .SelectMany(r => r.PurchaseOrders.Select(po => po.Id))
                 .ToListAsync(ct);
             var currentUserId = this.CurrentUserId();
@@ -115,11 +140,11 @@ public class OrdersController : ControllerBase
         return response is null ? NotFound() : Ok(response);
     }
 
-    /// <summary>Staff confirms they've paid the shop with their own card — creates the
-    /// AdvancePaid ledger entry (company now owes this amount to the staff member).</summary>
+    /// <summary>Records the actual payment source, payer, amount, and optional receipt. Staff advances create a ledger entry; company-direct payments do not.</summary>
     [HttpPost("{id:int}/mark-paid")]
     [Authorize(Roles = "staff,admin")]
-    public async Task<ActionResult<PurchaseOrderResponse>> MarkPaid(int id, CancellationToken ct)
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<PurchaseOrderResponse>> MarkPaid(int id, [FromForm] MarkOrderPaidRequest request, CancellationToken ct)
     {
         var order = await _db.PurchaseOrders.FindAsync([id], ct);
         if (order is null) return NotFound();
@@ -129,18 +154,145 @@ public class OrdersController : ControllerBase
             return BadRequest(new { message = $"ออเดอร์นี้อยู่ในสถานะ {order.Status} แล้ว ไม่สามารถ mark-paid ซ้ำได้" });
         }
 
-        order.Status = PurchaseOrderStatus.PaidByStaff;
-        _db.StaffLedgerEntries.Add(new StaffLedgerEntry
+        if (!Enum.TryParse<PaymentSource>(request.PaymentSource, true, out var paymentSource) || !Enum.IsDefined(paymentSource))
         {
-            UserId = order.OrderedByUserId,
-            EntryType = StaffLedgerEntryType.AdvancePaid,
-            Amount = order.TotalAmount,
-            RelatedPurchaseOrderId = order.Id,
-            Note = $"สำรองจ่ายออเดอร์ {order.PlatformOrderNo}",
-        });
-        await _db.SaveChangesAsync(ct);
+            return BadRequest(new { message = "เลือกวิธีจ่ายเงินไม่ถูกต้อง" });
+        }
+        if (request.ActualPaidAmount < 0)
+        {
+            return BadRequest(new { message = "ยอดจ่ายจริงต้องไม่ติดลบ" });
+        }
+
+        var payerUserId = request.PaymentPayerUserId ?? order.OrderedByUserId;
+        if (paymentSource == PaymentSource.StaffAdvance && payerUserId != order.OrderedByUserId)
+        {
+            return BadRequest(new { message = "กรณีพนักงานสำรองจ่าย ผู้เบิกต้องเป็นเจ้าของออเดอร์" });
+        }
+        if (!await _db.Users.AnyAsync(u => u.Id == payerUserId && (paymentSource == PaymentSource.StaffAdvance || u.IsActive), ct))
+        {
+            return BadRequest(new { message = "ไม่พบผู้จ่ายเงินที่ใช้งานอยู่" });
+        }
+
+        var cancellationCases = await _db.Cancellations
+            .Where(c => c.OrderItem.PurchaseOrderId == order.Id)
+            .ToListAsync(ct);
+        if (cancellationCases.Sum(c => c.RefundAmount) > request.ActualPaidAmount)
+        {
+            return BadRequest(new { message = "ยอดคืนรวมเกินยอดจ่ายจริงของออเดอร์" });
+        }
+
+        byte[]? evidenceBytes = null;
+        string? evidenceContentType = null;
+        string? evidenceFileName = null;
+        if (request.Evidence is not null)
+        {
+            if (request.Evidence.Length is <= 0 or > 5 * 1024 * 1024)
+            {
+                return BadRequest(new { message = "ไฟล์หลักฐานต้องมีขนาดไม่เกิน 5 MB" });
+            }
+
+            var extension = Path.GetExtension(request.Evidence.FileName).ToLowerInvariant();
+            evidenceContentType = extension switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".pdf" => "application/pdf",
+                _ => null,
+            };
+            if (evidenceContentType is null)
+            {
+                return BadRequest(new { message = "แนบได้เฉพาะไฟล์ JPG, PNG หรือ PDF" });
+            }
+
+            var prefix = new byte[8];
+            await using (var stream = request.Evidence.OpenReadStream())
+            {
+                var read = Math.Min(prefix.Length, (int)request.Evidence.Length);
+                await stream.ReadExactlyAsync(prefix.AsMemory(0, read), ct);
+                var validSignature = extension switch
+                {
+                    ".jpg" or ".jpeg" => read >= 3 && prefix[0] == 0xff && prefix[1] == 0xd8 && prefix[2] == 0xff,
+                    ".png" => read >= 8 && prefix.SequenceEqual(new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }),
+                    ".pdf" => read >= 5 && prefix[0] == '%' && prefix[1] == 'P' && prefix[2] == 'D' && prefix[3] == 'F' && prefix[4] == '-',
+                    _ => false,
+                };
+                if (!validSignature)
+                {
+                    return BadRequest(new { message = "ชนิดไฟล์หลักฐานไม่ตรงกับนามสกุลไฟล์" });
+                }
+
+                stream.Position = 0;
+                using var buffer = new MemoryStream((int)request.Evidence.Length);
+                await stream.CopyToAsync(buffer, ct);
+                evidenceBytes = buffer.ToArray();
+            }
+            evidenceFileName = Path.GetFileName(request.Evidence.FileName);
+        }
+
+        order.ActualPaidAmount = request.ActualPaidAmount;
+        order.PaymentSource = paymentSource;
+        order.PaymentPayerUserId = payerUserId;
+        order.PaymentRecordedByUserId = this.CurrentUserId();
+        order.PaidAt = DateTime.UtcNow;
+        order.PaymentEvidence = evidenceBytes;
+        order.PaymentEvidenceContentType = evidenceContentType;
+        order.PaymentEvidenceFileName = evidenceFileName;
+        order.RowVersion += 1;
+
+        if (paymentSource == PaymentSource.StaffAdvance)
+        {
+            order.Status = PurchaseOrderStatus.PaidByStaff;
+            _db.StaffLedgerEntries.Add(new StaffLedgerEntry
+            {
+                UserId = payerUserId,
+                EntryType = StaffLedgerEntryType.AdvancePaid,
+                Amount = request.ActualPaidAmount,
+                RelatedPurchaseOrderId = order.Id,
+                Note = $"สำรองจ่ายออเดอร์ {order.PlatformOrderNo}",
+            });
+
+            var settledRefunds = cancellationCases
+                .Where(c => c.Status != CancellationStatus.RefundPending && c.ReimbursementId == null);
+            foreach (var cancellation in settledRefunds.Where(cancellation => cancellation.RefundAmount > 0))
+            {
+                _db.StaffLedgerEntries.Add(new StaffLedgerEntry
+                {
+                    UserId = payerUserId,
+                    EntryType = StaffLedgerEntryType.Adjustment,
+                    Amount = -cancellation.RefundAmount,
+                    RelatedCancellation = cancellation,
+                    Note = $"ปรับยอดสำรองจ่ายจากเงินคืนก่อนบันทึกจ่าย — order item #{cancellation.OrderItemId}",
+                });
+            }
+        }
+        else
+        {
+            order.Status = PurchaseOrderStatus.PaidByCompany;
+        }
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "ออเดอร์นี้ถูกบันทึกการจ่ายเงินไปพร้อมกันแล้ว กรุณาโหลดข้อมูลใหม่" });
+        }
 
         return Ok(await ToResponse(id, ct));
+    }
+
+    [HttpGet("{id:int}/payment-evidence")]
+    [Authorize(Roles = "staff,finance,admin")]
+    public async Task<IActionResult> GetPaymentEvidence(int id, CancellationToken ct)
+    {
+        var order = await _db.PurchaseOrders.FirstOrDefaultAsync(o => o.Id == id, ct);
+        if (order is null) return NotFound();
+        if (User.IsInRole("staff") && order.OrderedByUserId != this.CurrentUserId() && order.PaymentPayerUserId != this.CurrentUserId()) return NotFound();
+        if (order.PaymentEvidence is null || order.PaymentEvidenceContentType is null || order.PaymentEvidenceFileName is null) return NotFound();
+
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(order.PaymentEvidence, order.PaymentEvidenceContentType, order.PaymentEvidenceFileName, enableRangeProcessing: true);
     }
 
     /// <summary>Staff records the shop's tracking number once it ships — required before the
@@ -161,7 +313,15 @@ public class OrdersController : ControllerBase
 
         item.TrackingNo = request.TrackingNo;
         item.Courier = request.Courier;
-        await _db.SaveChangesAsync(ct);
+        item.RowVersion += 1;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "รายการนี้เปลี่ยนพร้อมกัน กรุณาโหลดใหม่" });
+        }
         return NoContent();
     }
 
@@ -177,7 +337,10 @@ public class OrdersController : ControllerBase
         var order = await query
             .Include(o => o.Platform)
             .Include(o => o.OrderedByUser)
+            .Include(o => o.PaymentPayerUser)
+            .Include(o => o.PaymentRecordedByUser)
             .Include(o => o.OrderItems).ThenInclude(i => i.Product)
+            .Include(o => o.OrderItems).ThenInclude(i => i.Cancellations)
             .FirstOrDefaultAsync(o => o.Id == id, ct);
         return order is null ? null : MapToResponse(order);
     }
@@ -191,8 +354,16 @@ public class OrdersController : ControllerBase
         order.OrderedAt,
         order.OrderedByUserId,
         order.OrderedByUser.Username,
+        order.ActualPaidAmount,
+        order.PaymentSource == PaymentSource.StaffAdvance ? ReimbursementAmountCalculator.Calculate(order) : null,
+        order.PaymentSource?.ToString(),
+        order.PaymentPayerUserId,
+        order.PaymentPayerUser?.Username,
+        order.PaymentRecordedByUser?.Username,
+        order.PaidAt,
+        order.PaymentEvidence is not null,
         order.OrderItems.Select(i => new OrderItemResponse(
-            i.Id, i.ProductId, i.Product.Name, i.Qty, i.UnitPrice, i.Status.ToString(),
+            i.Id, i.ProductId, i.Product.Name, i.Qty, i.UnitPrice, i.Status.ToString(), i.ReturnedQty,
             i.TrackingNo, i.Courier, i.ArrivedAt, i.CancelledAt)).ToList()
     );
 }

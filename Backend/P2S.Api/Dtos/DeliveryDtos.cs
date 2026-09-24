@@ -18,4 +18,4 @@ public record ScanMatchRequest(string ScannedCode);
 
 public record ConfirmArrivedRequest(string ScannedCode, string MatchMethod);
 
-public record CancelOrderItemRequest(string? Note);
+public record CancelOrderItemRequest(string? Note, decimal? RefundAmount = null);

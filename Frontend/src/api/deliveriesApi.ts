@@ -11,6 +11,6 @@ export async function confirmArrived(orderItemId: number, scannedCode: string, m
   return data;
 }
 
-export async function cancelOrderItem(orderItemId: number, note?: string): Promise<void> {
-  await apiClient.post(`/api/deliveries/${orderItemId}/cancel`, { note });
+export async function cancelOrderItem(orderItemId: number, note?: string, refundAmount?: number): Promise<void> {
+  await apiClient.post(`/api/deliveries/${orderItemId}/cancel`, { note, refundAmount });
 }

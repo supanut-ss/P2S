@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using P2S.Api.Data;
 
@@ -11,9 +12,11 @@ using P2S.Api.Data;
 namespace P2S.Api.Data.Migrations
 {
     [DbContext(typeof(P2SDbContext))]
-    partial class P2SDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924050551_FinancialAuditAndReturnsAndUniquePlatformOrderNo")]
+    partial class FinancialAuditAndReturnsAndUniquePlatformOrderNo
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -454,61 +457,6 @@ namespace P2S.Api.Data.Migrations
                     b.ToTable("PurchaseOrders");
                 });
 
-            modelBuilder.Entity("P2S.Api.Data.Entities.PurchaseOrderPaymentCorrection", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("CorrectedActualPaidAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CorrectedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("CorrectedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("PreviousActualPaidAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime?>("PreviousApprovedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("PreviousApprovedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PreviousRequestStatus")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PurchaseOrderId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<int>("ReimbursementId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CorrectedByUserId");
-
-                    b.HasIndex("PreviousApprovedByUserId");
-
-                    b.HasIndex("PurchaseOrderId", "CorrectedAt");
-
-                    b.HasIndex("ReimbursementId", "CorrectedAt");
-
-                    b.ToTable("PurchaseOrderPaymentCorrections");
-                });
-
             modelBuilder.Entity("P2S.Api.Data.Entities.Reimbursement", b =>
                 {
                     b.Property<int>("Id")
@@ -754,9 +702,6 @@ namespace P2S.Api.Data.Migrations
 
                     b.HasKey("PurchaseOrdersId", "ReimbursementId");
 
-                    b.HasIndex("PurchaseOrdersId")
-                        .IsUnique();
-
                     b.HasIndex("ReimbursementId");
 
                     b.ToTable("PurchaseOrderReimbursement");
@@ -909,36 +854,6 @@ namespace P2S.Api.Data.Migrations
                     b.Navigation("PaymentRecordedByUser");
 
                     b.Navigation("Platform");
-                });
-
-            modelBuilder.Entity("P2S.Api.Data.Entities.PurchaseOrderPaymentCorrection", b =>
-                {
-                    b.HasOne("P2S.Api.Data.Entities.User", "CorrectedByUser")
-                        .WithMany()
-                        .HasForeignKey("CorrectedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("P2S.Api.Data.Entities.User", "PreviousApprovedByUser")
-                        .WithMany()
-                        .HasForeignKey("PreviousApprovedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("P2S.Api.Data.Entities.PurchaseOrder", null)
-                        .WithMany()
-                        .HasForeignKey("PurchaseOrderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("P2S.Api.Data.Entities.Reimbursement", null)
-                        .WithMany()
-                        .HasForeignKey("ReimbursementId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CorrectedByUser");
-
-                    b.Navigation("PreviousApprovedByUser");
                 });
 
             modelBuilder.Entity("P2S.Api.Data.Entities.Reimbursement", b =>

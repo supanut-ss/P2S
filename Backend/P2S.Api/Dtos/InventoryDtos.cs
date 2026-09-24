@@ -7,6 +7,11 @@ public record InventoryItemResponse(
     string SkuCode,
     int QtyReceived,
     int QtyOnHand,
+    int OrderItemId,
+    string PlatformCode,
+    string PlatformOrderNo,
+    int OrderedByUserId,
+    string OrderedByUsername,
     decimal CostPerUnit,
     string Status,
     DateTime ReceivedAt

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -6,13 +6,15 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { PageHeader } from '../components/PageHeader';
+import { BarcodeScannerDialog } from '../components/BarcodeScannerDialog';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { purchaseOrderStatusLabel } from '../theme/tokens';
 import { createOrder, listOrders, markPaid, type CreateOrderItemInput } from '../api/ordersApi';
-import { getPlatforms, getProducts } from '../api/masterDataApi';
-import type { PlatformResponse, ProductResponse, PurchaseOrderResponse } from '../types/models';
+import { getPaymentPayers, getPlatforms, getProducts } from '../api/masterDataApi';
+import type { PaymentPayerResponse, PlatformResponse, ProductResponse, PurchaseOrderResponse } from '../types/models';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 
@@ -20,6 +22,7 @@ export function OrdersPage() {
   const [orders, setOrders] = useState<PurchaseOrderResponse[]>([]);
   const [platforms, setPlatforms] = useState<PlatformResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [users, setUsers] = useState<PaymentPayerResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +30,19 @@ export function OrdersPage() {
   const [search, setSearch] = useState('');
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [orderScannerOpen, setOrderScannerOpen] = useState(false);
   const [formPlatformId, setFormPlatformId] = useState<number | ''>('');
   const [formOrderNo, setFormOrderNo] = useState('');
   const [formItems, setFormItems] = useState<CreateOrderItemInput[]>([{ productId: 0, qty: 1, unitPrice: 0 }]);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<PurchaseOrderResponse | null>(null);
+  const [paymentSource, setPaymentSource] = useState<'StaffAdvance' | 'CompanyDirect'>('StaffAdvance');
+  const [actualPaidAmount, setActualPaidAmount] = useState('0');
+  const [paymentPayerUserId, setPaymentPayerUserId] = useState<number | ''>('');
+  const [paymentEvidence, setPaymentEvidence] = useState<File | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const busyOrdersRef = useRef(new Set<number>());
   const [busyOrders, setBusyOrders] = useState<Set<number>>(new Set());
 
@@ -39,14 +50,16 @@ export function OrdersPage() {
     setLoading(true);
     setError(null);
     try {
-      const [ordersData, platformsData, productsData] = await Promise.all([
+      const [ordersData, platformsData, productsData, usersData] = await Promise.all([
         listOrders({ status: statusFilter || undefined, search: search || undefined }),
         getPlatforms(),
         getProducts(),
+        getPaymentPayers(),
       ]);
       setOrders(ordersData);
       setPlatforms(platformsData);
       setProducts(productsData);
+      setUsers(usersData);
     } catch {
       setError('โหลดรายการออเดอร์ไม่สำเร็จ');
     } finally {
@@ -69,6 +82,12 @@ export function OrdersPage() {
     setDialogOpen(true);
   };
 
+  const handleOrderNoDetected = useCallback((code: string) => {
+    setFormOrderNo(code.trim());
+    setFormError(null);
+    setOrderScannerOpen(false);
+  }, []);
+
   const updateItem = (index: number, patch: Partial<CreateOrderItemInput>) => {
     setFormItems((items) => items.map((it, i) => (i === index ? { ...it, ...patch } : it)));
   };
@@ -87,25 +106,51 @@ export function OrdersPage() {
       await createOrder({ platformId: formPlatformId, platformOrderNo: formOrderNo.trim(), items: formItems });
       setDialogOpen(false);
       await load();
-    } catch {
-      setFormError('สร้างออเดอร์ไม่สำเร็จ');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setFormError(msg ?? 'สร้างออเดอร์ไม่สำเร็จ');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleMarkPaid = async (id: number) => {
+  const openPaymentDialog = (order: PurchaseOrderResponse) => {
+    setPaymentTarget(order);
+    setPaymentSource('StaffAdvance');
+    setActualPaidAmount(String(order.totalAmount));
+    setPaymentPayerUserId(order.orderedByUserId);
+    setPaymentEvidence(null);
+    setPaymentError(null);
+  };
+
+  const handleMarkPaid = async () => {
+    if (!paymentTarget || paymentPayerUserId === '') return;
+    const id = paymentTarget.id;
     if (busyOrdersRef.current.has(id)) return;
+    if (actualPaidAmount.trim() === '' || !Number.isFinite(Number(actualPaidAmount)) || Number(actualPaidAmount) < 0) {
+      setPaymentError('กรอกยอดจ่ายจริงเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป');
+      return;
+    }
     busyOrdersRef.current.add(id);
     setBusyOrders(new Set(busyOrdersRef.current));
+    setPaymentSubmitting(true);
+    setPaymentError(null);
     try {
-      await markPaid(id);
+      await markPaid(id, {
+        paymentSource,
+        actualPaidAmount: Number(actualPaidAmount),
+        paymentPayerUserId,
+        evidence: paymentEvidence ?? undefined,
+      });
+      setPaymentTarget(null);
       await load();
-    } catch {
-      setError('mark-paid ไม่สำเร็จ');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setPaymentError(msg ?? 'บันทึกการจ่ายเงินไม่สำเร็จ');
     } finally {
       busyOrdersRef.current.delete(id);
       setBusyOrders(new Set(busyOrdersRef.current));
+      setPaymentSubmitting(false);
     }
   };
 
@@ -147,7 +192,7 @@ export function OrdersPage() {
               <TableCell>แพลตฟอร์ม</TableCell>
               <TableCell>เลขออเดอร์</TableCell>
               <TableCell>ผู้สั่ง</TableCell>
-              <TableCell align="right">ยอดรวม</TableCell>
+              <TableCell align="right">ยอดสินค้า / จ่ายจริง</TableCell>
               <TableCell>สถานะ</TableCell>
               <TableCell>วันที่สั่ง</TableCell>
               <TableCell align="right">จัดการ</TableCell>
@@ -159,12 +204,12 @@ export function OrdersPage() {
                 <TableCell>{o.platformCode}</TableCell>
                 <TableCell>{o.platformOrderNo}</TableCell>
                 <TableCell>{o.orderedByUsername}</TableCell>
-                <TableCell align="right">{thb.format(o.totalAmount)}</TableCell>
+                <TableCell align="right">{thb.format(o.actualPaidAmount ?? o.totalAmount)}</TableCell>
                 <TableCell><StatusBadge status={o.status} label={purchaseOrderStatusLabel[o.status] ?? o.status} /></TableCell>
                 <TableCell>{new Date(o.orderedAt).toLocaleDateString('th-TH')}</TableCell>
                 <TableCell align="right">
                   {o.status === 'Ordered' && (
-                    <Button size="small" disabled={busyOrders.has(o.id)} onClick={() => handleMarkPaid(o.id)}>จ่ายแล้ว</Button>
+                    <Button size="small" disabled={busyOrders.has(o.id)} onClick={() => openPaymentDialog(o)}>บันทึกการจ่าย</Button>
                   )}
                 </TableCell>
               </TableRow>
@@ -187,13 +232,13 @@ export function OrdersPage() {
               <StatusBadge status={o.status} label={purchaseOrderStatusLabel[o.status] ?? o.status} />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">ยอดรวม</Typography>
-              <Typography variant="body1" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.totalAmount)}</Typography>
+              <Typography variant="body2" color="text.secondary">ยอดสินค้า / จ่ายจริง</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.actualPaidAmount ?? o.totalAmount)}</Typography>
               <Typography variant="body2" color="text.secondary">วันที่สั่ง</Typography>
               <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
             </Box>
             {o.status === 'Ordered' && (
-              <Button fullWidth variant="outlined" disabled={busyOrders.has(o.id)} sx={{ mt: 2, minHeight: 44 }} onClick={() => handleMarkPaid(o.id)}>{busyOrders.has(o.id) ? 'กำลังบันทึก…' : 'จ่ายแล้ว'}</Button>
+              <Button fullWidth variant="outlined" disabled={busyOrders.has(o.id)} sx={{ mt: 2, minHeight: 44 }} onClick={() => openPaymentDialog(o)}>{busyOrders.has(o.id) ? 'กำลังบันทึก…' : 'บันทึกการจ่าย'}</Button>
             )}
           </Paper>
         ))}
@@ -216,7 +261,22 @@ export function OrdersPage() {
               '& .MuiInputLabel-root.MuiInputLabel-shrink': { transform: 'translate(14px, -24px) scale(0.75)' },
             }}
           />
-          <TextField label="เลขออเดอร์ (จากแอพ)" value={formOrderNo} onChange={(e) => setFormOrderNo(e.target.value)} />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+            <TextField
+              fullWidth
+              label="เลขออเดอร์ (จากแอพ)"
+              value={formOrderNo}
+              onChange={(e) => setFormOrderNo(e.target.value)}
+            />
+            <Button
+              variant="outlined"
+              startIcon={<CameraAltIcon />}
+              onClick={() => setOrderScannerOpen(true)}
+              sx={{ minHeight: 56, flexShrink: 0 }}
+            >
+              สแกน
+            </Button>
+          </Box>
 
           <Typography variant="subtitle2">รายการสินค้า</Typography>
           {formItems.map((item, idx) => (
@@ -242,6 +302,60 @@ export function OrdersPage() {
         <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
           <Button onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
           <Button variant="contained" onClick={handleCreate} disabled={submitting}>บันทึก</Button>
+        </DialogActions>
+      </Dialog>
+      <BarcodeScannerDialog
+        open={orderScannerOpen}
+        title="สแกนเลขออเดอร์"
+        onClose={() => setOrderScannerOpen(false)}
+        onDetected={handleOrderNoDetected}
+      />
+      <Dialog open={paymentTarget !== null} onClose={() => !paymentSubmitting && setPaymentTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>บันทึกการจ่าย — {paymentTarget?.platformOrderNo}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {paymentError && <Alert severity="error">{paymentError}</Alert>}
+          <ResponsiveSelectField
+            label="วิธีจ่ายเงิน"
+            value={paymentSource}
+            options={[{ value: 'StaffAdvance', label: 'พนักงานสำรองจ่าย — ขอเบิกคืนได้' }, { value: 'CompanyDirect', label: 'บริษัท/เจ้านายจ่ายตรง — ไม่เข้าเบิกพนักงาน' }]}
+            onChange={(value) => {
+              const next = String(value) as 'StaffAdvance' | 'CompanyDirect';
+              setPaymentSource(next);
+              if (next === 'StaffAdvance' && paymentTarget) setPaymentPayerUserId(paymentTarget.orderedByUserId);
+              if (next === 'CompanyDirect' && paymentPayerUserId === paymentTarget?.orderedByUserId) {
+                setPaymentPayerUserId(users.find((u) => u.role === 'admin')?.id ?? users[0]?.id ?? '');
+              }
+            }}
+          />
+          <TextField
+            label="ยอดจ่ายจริง (รวมส่วนลด/ค่าส่ง)"
+            type="number"
+            slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+            value={actualPaidAmount}
+            onChange={(e) => setActualPaidAmount(e.target.value)}
+          />
+          <ResponsiveSelectField
+            label={paymentSource === 'StaffAdvance' ? 'ผู้สำรองจ่าย/ผู้ขอเบิก' : 'ผู้จ่ายเงินจริง'}
+            value={paymentPayerUserId}
+            disabled={paymentSource === 'StaffAdvance'}
+            options={users.map((u) => ({ value: u.id, label: `${u.fullName} (${u.username})` }))}
+            onChange={(value) => setPaymentPayerUserId(Number(value))}
+          />
+          <Box>
+            <Button component="label" variant="outlined" sx={{ minHeight: 44 }}>
+              แนบหลักฐาน (ไม่บังคับ)
+              <input hidden type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setPaymentEvidence(e.target.files?.[0] ?? null)} />
+            </Button>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+              {paymentEvidence ? paymentEvidence.name : 'รองรับ JPG, PNG หรือ PDF ไม่เกิน 5 MB'}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
+          <Button onClick={() => setPaymentTarget(null)} disabled={paymentSubmitting}>ยกเลิก</Button>
+          <Button variant="contained" onClick={handleMarkPaid} disabled={paymentSubmitting || paymentPayerUserId === ''}>
+            {paymentSubmitting ? 'กำลังบันทึก…' : 'บันทึก'}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

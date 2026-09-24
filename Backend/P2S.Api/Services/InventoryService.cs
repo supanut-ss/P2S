@@ -30,6 +30,7 @@ public class InventoryService : IInventoryService
 
         orderItem.Status = OrderItemStatus.Arrived;
         orderItem.ArrivedAt = lot.ReceivedAt;
+        orderItem.RowVersion += 1;
 
         _db.InventoryItems.Add(lot);
         await _db.SaveChangesAsync(ct);

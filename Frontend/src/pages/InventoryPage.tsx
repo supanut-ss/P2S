@@ -8,12 +8,15 @@ import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { inventoryItemStatusLabel } from '../theme/tokens';
 import { listInventory, withdraw } from '../api/inventoryApi';
+import { createSupplierReturn } from '../api/cancellationsApi';
 import { getWithdrawalReasons } from '../api/masterDataApi';
 import type { InventoryItemResponse, WithdrawalReasonResponse } from '../types/models';
+import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 
 export function InventoryPage() {
+  const { user } = useAuth();
   const [items, setItems] = useState<InventoryItemResponse[]>([]);
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
@@ -26,6 +29,12 @@ export function InventoryPage() {
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<InventoryItemResponse | null>(null);
+  const [returnQty, setReturnQty] = useState(1);
+  const [returnRefundAmount, setReturnRefundAmount] = useState('0');
+  const [returnNote, setReturnNote] = useState('');
+  const [returnError, setReturnError] = useState<string | null>(null);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +85,41 @@ export function InventoryPage() {
     }
   };
 
+  const openSupplierReturn = (item: InventoryItemResponse) => {
+    setReturnTarget(item);
+    setReturnQty(1);
+    setReturnRefundAmount(String(item.costPerUnit));
+    setReturnNote('');
+    setReturnError(null);
+  };
+
+  const handleSupplierReturn = async () => {
+    if (!returnTarget || returnQty <= 0 || Number(returnRefundAmount) < 0) {
+      setReturnError('กรอกจำนวนและยอดคืนเงินให้ถูกต้อง');
+      return;
+    }
+    setReturnSubmitting(true);
+    setReturnError(null);
+    try {
+      await createSupplierReturn({
+        inventoryItemId: returnTarget.id,
+        quantity: returnQty,
+        refundAmount: Number(returnRefundAmount),
+        note: returnNote || undefined,
+      });
+      setReturnTarget(null);
+      await load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setReturnError(msg ?? 'บันทึกคืนผู้ขายไม่สำเร็จ');
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
+
+  const canReturn = (item: InventoryItemResponse) =>
+    item.qtyOnHand > 0 && (user?.role === 'admin' || user?.username === item.orderedByUsername);
+
   return (
     <>
       <PageHeader title="Inventory list" subtitle="รายการของในคลัง (sku, qty_on_hand, cost/unit, received_at) พร้อมปุ่มเบิกออก" />
@@ -122,6 +166,9 @@ export function InventoryPage() {
                   {item.status === 'InStock' && (
                     <Button size="small" onClick={() => openWithdraw(item)}>เบิกออก</Button>
                   )}
+                  {canReturn(item) && (
+                    <Button size="small" color="warning" onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -139,6 +186,7 @@ export function InventoryPage() {
               <Box sx={{ minWidth: 0 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>SKU: {item.skuCode}</Typography>
+                <Typography variant="caption" color="text.secondary">ออเดอร์ {item.platformCode}: {item.platformOrderNo}</Typography>
               </Box>
               <StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} />
             </Box>
@@ -152,6 +200,9 @@ export function InventoryPage() {
             </Box>
             {item.status === 'InStock' && (
               <Button fullWidth variant="outlined" sx={{ mt: 2, minHeight: 44 }} onClick={() => openWithdraw(item)}>เบิกออก</Button>
+            )}
+            {canReturn(item) && (
+              <Button fullWidth variant="outlined" color="warning" sx={{ mt: 1, minHeight: 44 }} onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>
             )}
           </Paper>
         ))}
@@ -182,6 +233,24 @@ export function InventoryPage() {
         <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 }, px: { xs: 2, sm: 1 }, display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, '& > button': { width: { xs: '100%', sm: 'auto' }, minHeight: 44 } }}>
           <Button onClick={() => setTarget(null)}>ยกเลิก</Button>
           <Button variant="contained" onClick={handleWithdraw} disabled={submitting}>เบิกออก</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={returnTarget !== null} onClose={() => !returnSubmitting && setReturnTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>คืนผู้ขาย — {returnTarget?.productName}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {returnError && <Alert severity="error">{returnError}</Alert>}
+          <Typography variant="body2" color="text.secondary">
+            ออเดอร์ {returnTarget?.platformCode}: {returnTarget?.platformOrderNo} · คงเหลือ {returnTarget?.qtyOnHand} ชิ้น
+          </Typography>
+          <TextField label="จำนวนที่คืน" type="number" slotProps={{ htmlInput: { min: 1, max: returnTarget?.qtyOnHand, step: 1 } }} value={returnQty} onChange={(e) => setReturnQty(Number(e.target.value))} />
+          <TextField label="ยอดเงินคืนที่ต้องตาม" type="number" slotProps={{ htmlInput: { min: 0, step: '0.01' } }} value={returnRefundAmount} onChange={(e) => setReturnRefundAmount(e.target.value)} />
+          <TextField label="หมายเหตุ (ถ้ามี)" value={returnNote} onChange={(e) => setReturnNote(e.target.value)} multiline rows={2} />
+        </DialogContent>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
+          <Button onClick={() => setReturnTarget(null)} disabled={returnSubmitting}>ยกเลิก</Button>
+          <Button variant="contained" color="warning" onClick={handleSupplierReturn} disabled={returnSubmitting}>
+            {returnSubmitting ? 'กำลังบันทึก…' : 'บันทึกคืนและตัด stock'}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

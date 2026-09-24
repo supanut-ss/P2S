@@ -63,12 +63,14 @@ export const purchaseOrderStatusLabel: Record<string, string> = {
   Ordered: 'สั่งแล้ว',
   PaidByStaff: 'จ่ายแล้ว (รอเบิก)',
   Reimbursed: 'เบิกแล้ว',
+  PaidByCompany: 'บริษัทจ่ายตรง',
 };
 
 export const orderItemStatusLabel: Record<string, string> = {
   Pending: 'รอของมา',
   Arrived: 'ได้รับแล้ว',
   Cancelled: 'ยกเลิก',
+  Returned: 'คืนผู้ขาย',
 };
 
 export const inventoryItemStatusLabel: Record<string, string> = {
@@ -80,6 +82,7 @@ export const reimbursementStatusLabel: Record<string, string> = {
   Pending: 'รอตรวจสอบ',
   Approved: 'อนุมัติแล้ว',
   Paid: 'จ่ายแล้ว',
+  Voided: 'ยกเลิก (คืนเต็มจำนวน)',
 };
 
 export const cancellationStatusLabel: Record<string, string> = {
@@ -92,6 +95,7 @@ const statusColorMap: Record<string, string> = {
   Ordered: tokens.status.ordered,
   PaidByStaff: tokens.status.paidByStaff,
   Reimbursed: tokens.status.reimbursed,
+  PaidByCompany: tokens.color.info,
   Arrived: tokens.status.delivered,
   Pending: tokens.status.paidByStaff,
   Cancelled: tokens.status.cancelled,
@@ -99,6 +103,7 @@ const statusColorMap: Record<string, string> = {
   Depleted: tokens.status.depleted,
   Approved: tokens.status.reimbursed,
   Paid: tokens.status.delivered,
+  Voided: tokens.color.mutedForeground,
   RefundPending: tokens.status.refundPending,
   Refunded: tokens.status.delivered,
   Adjusted: tokens.status.reimbursed,
