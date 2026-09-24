@@ -127,7 +127,7 @@ export function ReimbursementsPage() {
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox" />
-              <TableCell>Platform</TableCell>
+              <TableCell>แพลตฟอร์ม</TableCell>
               <TableCell>เลขออเดอร์</TableCell>
               <TableCell align="right">ยอดรวม</TableCell>
             </TableRow>
@@ -154,7 +154,7 @@ export function ReimbursementsPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Checkbox checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)} slotProps={{ input: { 'aria-label': `เลือกออเดอร์ ${o.platformOrderNo}` } }} />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontWeight: 700 }} noWrap>{o.platformOrderNo}</Typography>
+                  <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{o.platformOrderNo}</Typography>
                   <Typography variant="body2" color="text.secondary">{o.platformCode}</Typography>
                 </Box>
                 <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.totalAmount)}</Typography>

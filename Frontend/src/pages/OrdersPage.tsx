@@ -144,7 +144,7 @@ export function OrdersPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Platform</TableCell>
+              <TableCell>แพลตฟอร์ม</TableCell>
               <TableCell>เลขออเดอร์</TableCell>
               <TableCell>ผู้สั่ง</TableCell>
               <TableCell align="right">ยอดรวม</TableCell>
@@ -207,10 +207,14 @@ export function OrdersPage() {
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {formError && <Alert severity="error">{formError}</Alert>}
           <ResponsiveSelectField
-            label="Platform"
+            label="แพลตฟอร์ม"
             value={formPlatformId}
             options={platforms.map((platform) => ({ value: platform.id, label: platform.name }))}
             onChange={(value) => setFormPlatformId(Number(value))}
+            sx={{
+              mt: 3,
+              '& .MuiInputLabel-root.MuiInputLabel-shrink': { transform: 'translate(14px, -24px) scale(0.75)' },
+            }}
           />
           <TextField label="เลขออเดอร์ (จากแอพ)" value={formOrderNo} onChange={(e) => setFormOrderNo(e.target.value)} />
 

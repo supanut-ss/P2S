@@ -368,7 +368,7 @@ export function AdminPage() {
               <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700 }} noWrap>{p.name}</Typography>
+                    <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{p.name}</Typography>
                     <Typography variant="body2" color="text.secondary">{p.skuCode} · {p.unit}</Typography>
                     <Chip size="small" label={p.category} sx={{ mt: 0.5 }} />
                   </Box>
@@ -586,8 +586,8 @@ export function AdminPage() {
               <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography sx={{ fontWeight: 700 }} noWrap>{u.fullName}</Typography>
-                    <Typography variant="body2" color="text.secondary" noWrap>{u.username}</Typography>
+                    <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{u.fullName}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>{u.username}</Typography>
                   </Box>
                   <Chip label={u.role} size="small" />
                   <IconButton onClick={() => openEditUser(u)} aria-label={`แก้ไขผู้ใช้ ${u.username}`} sx={{ minWidth: 44, minHeight: 44 }}><EditIcon /></IconButton>

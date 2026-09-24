@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace P2S.Api.Dtos;
 
 public record ProductResponse(int Id, string Name, string SkuCode, string Category, string Unit, bool IsActive);
-public record CreateProductRequest(string Name, string SkuCode, string Unit, [property: MaxLength(100)] string Category = "ทั่วไป");
-public record UpdateProductRequest(string Name, string SkuCode, string Unit, bool IsActive, [property: MaxLength(100)] string Category = "ทั่วไป");
+public record CreateProductRequest(string Name, string SkuCode, string Unit, [MaxLength(100)] string Category = "ทั่วไป");
+public record UpdateProductRequest(string Name, string SkuCode, string Unit, bool IsActive, [MaxLength(100)] string Category = "ทั่วไป");
 
 public record PlatformResponse(int Id, string Code, string Name, bool IsActive);
 public record CreatePlatformRequest(string Code, string Name);
