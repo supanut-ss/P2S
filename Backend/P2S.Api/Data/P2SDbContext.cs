@@ -60,6 +60,7 @@ public class P2SDbContext : DbContext
             e.HasIndex(x => new { x.PlatformId, x.PlatformOrderNo }).IsUnique();
             e.HasOne(x => x.Platform).WithMany().HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.OrderedByUser).WithMany().HasForeignKey(x => x.OrderedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.PlannedPaymentPayerUser).WithMany().HasForeignKey(x => x.PlannedPaymentPayerUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.PaymentPayerUser).WithMany().HasForeignKey(x => x.PaymentPayerUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.PaymentRecordedByUser).WithMany().HasForeignKey(x => x.PaymentRecordedByUserId).OnDelete(DeleteBehavior.Restrict);
         });

@@ -14,11 +14,13 @@ import { StatusBadge } from '../components/StatusBadge';
 import { purchaseOrderStatusLabel } from '../theme/tokens';
 import { createOrder, listOrders, markPaid, type CreateOrderItemInput } from '../api/ordersApi';
 import { getPaymentPayers, getPlatforms, getProducts } from '../api/masterDataApi';
-import type { PaymentPayerResponse, PlatformResponse, ProductResponse, PurchaseOrderResponse } from '../types/models';
+import type { PaymentPayerResponse, PaymentSource, PlatformResponse, ProductResponse, PurchaseOrderResponse } from '../types/models';
+import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 
 export function OrdersPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<PurchaseOrderResponse[]>([]);
   const [platforms, setPlatforms] = useState<PlatformResponse[]>([]);
   const [products, setProducts] = useState<ProductResponse[]>([]);
@@ -34,6 +36,8 @@ export function OrdersPage() {
   const [formPlatformId, setFormPlatformId] = useState<number | ''>('');
   const [formOrderNo, setFormOrderNo] = useState('');
   const [formItems, setFormItems] = useState<CreateOrderItemInput[]>([{ productId: 0, qty: 1, unitPrice: 0 }]);
+  const [formPaymentSource, setFormPaymentSource] = useState<PaymentSource>('StaffAdvance');
+  const [formPaymentPayerUserId, setFormPaymentPayerUserId] = useState<number | ''>('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<PurchaseOrderResponse | null>(null);
@@ -78,6 +82,8 @@ export function OrdersPage() {
     setFormPlatformId(platforms[0]?.id ?? '');
     setFormOrderNo('');
     setFormItems([{ productId: products[0]?.id ?? 0, qty: 1, unitPrice: 0 }]);
+    setFormPaymentSource('StaffAdvance');
+    setFormPaymentPayerUserId(users.find((u) => u.role === 'admin')?.id ?? users[0]?.id ?? '');
     setFormError(null);
     setDialogOpen(true);
   };
@@ -96,14 +102,26 @@ export function OrdersPage() {
   const removeItem = (index: number) => setFormItems((items) => items.filter((_, i) => i !== index));
 
   const handleCreate = async () => {
-    if (formPlatformId === '' || !formOrderNo.trim() || formItems.some((i) => !i.productId || i.qty <= 0 || i.unitPrice < 0)) {
+    if (
+      formPlatformId === '' || !formOrderNo.trim() ||
+      (formPaymentSource === 'CompanyDirect' && formPaymentPayerUserId === '') ||
+      formItems.some((i) => !i.productId || i.qty <= 0 || i.unitPrice < 0)
+    ) {
       setFormError('กรอกข้อมูลให้ครบและถูกต้อง');
       return;
     }
     setSubmitting(true);
     setFormError(null);
     try {
-      await createOrder({ platformId: formPlatformId, platformOrderNo: formOrderNo.trim(), items: formItems });
+      await createOrder({
+        platformId: formPlatformId,
+        platformOrderNo: formOrderNo.trim(),
+        plannedPaymentSource: formPaymentSource,
+        plannedPaymentPayerUserId: formPaymentSource === 'CompanyDirect' && formPaymentPayerUserId !== ''
+          ? formPaymentPayerUserId
+          : undefined,
+        items: formItems,
+      });
       setDialogOpen(false);
       await load();
     } catch (err: unknown) {
@@ -116,9 +134,9 @@ export function OrdersPage() {
 
   const openPaymentDialog = (order: PurchaseOrderResponse) => {
     setPaymentTarget(order);
-    setPaymentSource('StaffAdvance');
+    setPaymentSource(order.plannedPaymentSource ?? order.paymentSource ?? 'StaffAdvance');
     setActualPaidAmount(String(order.totalAmount));
-    setPaymentPayerUserId(order.orderedByUserId);
+    setPaymentPayerUserId(order.plannedPaymentPayerUserId ?? order.paymentPayerUserId ?? order.orderedByUserId);
     setPaymentEvidence(null);
     setPaymentError(null);
   };
@@ -192,6 +210,7 @@ export function OrdersPage() {
               <TableCell>แพลตฟอร์ม</TableCell>
               <TableCell>เลขออเดอร์</TableCell>
               <TableCell>ผู้สั่ง</TableCell>
+              <TableCell>แผนการจ่าย</TableCell>
               <TableCell align="right">ยอดสินค้า / จ่ายจริง</TableCell>
               <TableCell>สถานะ</TableCell>
               <TableCell>วันที่สั่ง</TableCell>
@@ -204,6 +223,14 @@ export function OrdersPage() {
                 <TableCell>{o.platformCode}</TableCell>
                 <TableCell>{o.platformOrderNo}</TableCell>
                 <TableCell>{o.orderedByUsername}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {(o.plannedPaymentSource ?? o.paymentSource) === 'CompanyDirect' ? 'เจ้าของ/บริษัทจ่ายตรง' : 'พนักงานสำรองจ่าย'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {o.plannedPaymentPayerUsername ?? o.paymentPayerUsername ?? o.orderedByUsername}
+                  </Typography>
+                </TableCell>
                 <TableCell align="right">{thb.format(o.actualPaidAmount ?? o.totalAmount)}</TableCell>
                 <TableCell><StatusBadge status={o.status} label={purchaseOrderStatusLabel[o.status] ?? o.status} /></TableCell>
                 <TableCell>{new Date(o.orderedAt).toLocaleDateString('th-TH')}</TableCell>
@@ -215,7 +242,7 @@ export function OrdersPage() {
               </TableRow>
             ))}
             {!loading && orders.length === 0 && (
-              <TableRow><TableCell colSpan={7} align="center">ไม่มีออเดอร์</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} align="center">ไม่มีออเดอร์</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -234,6 +261,11 @@ export function OrdersPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
               <Typography variant="body2" color="text.secondary">ยอดสินค้า / จ่ายจริง</Typography>
               <Typography variant="body1" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(o.actualPaidAmount ?? o.totalAmount)}</Typography>
+              <Typography variant="body2" color="text.secondary">แผนการจ่าย</Typography>
+              <Typography variant="body2">
+                {(o.plannedPaymentSource ?? o.paymentSource) === 'CompanyDirect' ? 'เจ้าของ/บริษัทจ่ายตรง' : 'พนักงานสำรองจ่าย'}
+                {' · '}{o.plannedPaymentPayerUsername ?? o.paymentPayerUsername ?? o.orderedByUsername}
+              </Typography>
               <Typography variant="body2" color="text.secondary">วันที่สั่ง</Typography>
               <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
             </Box>
@@ -277,6 +309,34 @@ export function OrdersPage() {
               สแกน
             </Button>
           </Box>
+
+          <ResponsiveSelectField
+            label="ใครเป็นผู้จ่ายเงิน"
+            value={formPaymentSource}
+            options={[
+              { value: 'StaffAdvance', label: 'พนักงานออกเงินเอง — ขอเบิกคืนได้' },
+              { value: 'CompanyDirect', label: 'เจ้าของ/บริษัทจ่ายตรง — ไม่สามารถเบิกคืน' },
+            ]}
+            onChange={(value) => {
+              const next = String(value) as PaymentSource;
+              setFormPaymentSource(next);
+              if (next === 'CompanyDirect' && formPaymentPayerUserId === '') {
+                setFormPaymentPayerUserId(users.find((u) => u.role === 'admin')?.id ?? users[0]?.id ?? '');
+              }
+            }}
+          />
+          {formPaymentSource === 'StaffAdvance' ? (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: -1.5 }}>
+              ระบบจะบันทึกผู้สั่งออเดอร์ ({user?.username ?? 'คุณ'}) เป็นผู้สำรองจ่ายและผู้ขอเบิก
+            </Typography>
+          ) : (
+            <ResponsiveSelectField
+              label="เจ้าของ/บริษัทผู้จ่าย"
+              value={formPaymentPayerUserId}
+              options={users.map((u) => ({ value: u.id, label: `${u.fullName} (${u.username})` }))}
+              onChange={(value) => setFormPaymentPayerUserId(Number(value))}
+            />
+          )}
 
           <Typography variant="subtitle2">รายการสินค้า</Typography>
           {formItems.map((item, idx) => (

@@ -116,6 +116,27 @@ export function ReimbursementsPage() {
 
   const selectedTotal = eligibleOrders.filter((o) => selected.has(o.id)).reduce((sum, o) => sum + (o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount), 0);
 
+  const renderOrderDetails = (request: ReimbursementResponse) => (
+    <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+      {request.purchaseOrders.map((order) => (
+        <Box key={order.id} sx={{ minWidth: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+            {order.platformCode} · {order.platformOrderNo}
+          </Typography>
+          <Stack spacing={0.25} sx={{ mt: 0.25 }}>
+            {order.items.map((item) => (
+              <Typography key={item.id} variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
+                {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+      ))}
+      {request.purchaseOrders.length === 0 && <Typography variant="caption" color="text.secondary">ไม่มีรายการสินค้า</Typography>}
+    </Stack>
+  );
+
   const downloadEvidence = async (orderId: number) => {
     try {
       const blob = await getPaymentEvidence(orderId);
@@ -308,6 +329,7 @@ export function ReimbursementsPage() {
             <TableRow>
               <TableCell>#</TableCell>
               <TableCell>ผู้ขอเบิก</TableCell>
+              <TableCell>ออเดอร์ / รายการสินค้า</TableCell>
               <TableCell align="right">ยอดรวม</TableCell>
               <TableCell>สถานะ</TableCell>
               <TableCell>วันที่ขอ</TableCell>
@@ -319,6 +341,7 @@ export function ReimbursementsPage() {
               <TableRow key={r.id} hover>
                 <TableCell>{r.id}</TableCell>
                 <TableCell>{r.requestedByUsername}</TableCell>
+                <TableCell sx={{ minWidth: 260 }}>{renderOrderDetails(r)}</TableCell>
                 <TableCell align="right">{thb.format(r.totalAmount)}</TableCell>
                 <TableCell><StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} /></TableCell>
                 <TableCell>{new Date(r.requestedAt).toLocaleDateString('th-TH')}</TableCell>
@@ -334,7 +357,7 @@ export function ReimbursementsPage() {
               </TableRow>
             ))}
             {!loading && reimbursements.length === 0 && (
-              <TableRow><TableCell colSpan={6} align="center">ไม่มีคำขอเบิกเงิน</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center">ไม่มีคำขอเบิกเงิน</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -348,6 +371,7 @@ export function ReimbursementsPage() {
                 <StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} />
               </Box>
               <Typography sx={{ mb: 1.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(r.totalAmount)}</Typography>
+              <Box sx={{ mb: 1.5 }}>{renderOrderDetails(r)}</Box>
               <Button fullWidth variant="outlined" sx={{ mb: 1, minHeight: 44 }} onClick={() => setAuditTarget(r)}>ตรวจสอบรายละเอียด</Button>
               {canReviewReimbursements && r.status === 'Pending' && <Button fullWidth variant="outlined" disabled={busyId !== null} onClick={() => handleApprove(r.id)} sx={{ minHeight: 44 }}>อนุมัติ</Button>}
               {canReviewReimbursements && r.status === 'Approved' && <Button fullWidth variant="contained" disabled={busyId !== null} onClick={() => handlePay(r.id)} sx={{ minHeight: 44 }}>จ่ายเงิน</Button>}

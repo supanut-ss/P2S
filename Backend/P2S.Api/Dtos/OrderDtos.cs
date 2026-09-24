@@ -1,7 +1,12 @@
 namespace P2S.Api.Dtos;
 
 public record CreateOrderItemRequest(int ProductId, int Qty, decimal UnitPrice);
-public record CreateOrderRequest(int PlatformId, string PlatformOrderNo, List<CreateOrderItemRequest> Items);
+public record CreateOrderRequest(
+    int PlatformId,
+    string PlatformOrderNo,
+    string PlannedPaymentSource,
+    int? PlannedPaymentPayerUserId,
+    List<CreateOrderItemRequest> Items);
 
 public record OrderItemResponse(
     int Id,
@@ -34,6 +39,9 @@ public record PurchaseOrderResponse(
     string? PaymentRecordedByUsername,
     DateTime? PaidAt,
     bool HasPaymentEvidence,
+    string? PlannedPaymentSource,
+    int? PlannedPaymentPayerUserId,
+    string? PlannedPaymentPayerUsername,
     List<OrderItemResponse> Items
 );
 

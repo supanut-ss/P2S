@@ -7,7 +7,13 @@ export interface CreateOrderItemInput {
   unitPrice: number;
 }
 
-export async function createOrder(payload: { platformId: number; platformOrderNo: string; items: CreateOrderItemInput[] }): Promise<PurchaseOrderResponse> {
+export async function createOrder(payload: {
+  platformId: number;
+  platformOrderNo: string;
+  plannedPaymentSource: 'StaffAdvance' | 'CompanyDirect';
+  plannedPaymentPayerUserId?: number;
+  items: CreateOrderItemInput[];
+}): Promise<PurchaseOrderResponse> {
   const { data } = await apiClient.post<PurchaseOrderResponse>('/api/orders', payload);
   return data;
 }

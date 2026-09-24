@@ -38,6 +38,20 @@ public class OrdersController : ControllerBase
             return BadRequest(new { message = "กรอกเลขออเดอร์จากแพลตฟอร์ม" });
         }
 
+        if (!Enum.TryParse<PaymentSource>(request.PlannedPaymentSource, true, out var plannedPaymentSource) || !Enum.IsDefined(plannedPaymentSource))
+        {
+            return BadRequest(new { message = "เลือกรูปแบบผู้จ่ายเงินให้ถูกต้อง" });
+        }
+
+        var orderedByUserId = this.CurrentUserId();
+        var plannedPayerUserId = plannedPaymentSource == PaymentSource.StaffAdvance
+            ? orderedByUserId
+            : request.PlannedPaymentPayerUserId;
+        if (plannedPayerUserId is null || !await _db.Users.AnyAsync(u => u.Id == plannedPayerUserId && u.IsActive, ct))
+        {
+            return BadRequest(new { message = "เลือกผู้จ่ายเงินที่ใช้งานอยู่" });
+        }
+
         var platform = await _db.Platforms.FindAsync([request.PlatformId], ct);
         if (platform is null) return BadRequest(new { message = "ไม่รู้จัก platform" });
 
@@ -48,10 +62,12 @@ public class OrdersController : ControllerBase
         var order = new PurchaseOrder
         {
             PlatformId = request.PlatformId,
-            OrderedByUserId = this.CurrentUserId(),
+            OrderedByUserId = orderedByUserId,
             PlatformOrderNo = request.PlatformOrderNo.Trim(),
             Status = PurchaseOrderStatus.Ordered,
             TotalAmount = request.Items.Sum(i => i.Qty * i.UnitPrice),
+            PlannedPaymentSource = plannedPaymentSource,
+            PlannedPaymentPayerUserId = plannedPayerUserId,
             OrderedAt = DateTime.UtcNow,
         };
         order.OrderItems = request.Items.Select(i => new OrderItem
@@ -92,6 +108,7 @@ public class OrdersController : ControllerBase
         var query = _db.PurchaseOrders
             .Include(o => o.Platform)
             .Include(o => o.OrderedByUser)
+            .Include(o => o.PlannedPaymentPayerUser)
             .Include(o => o.PaymentPayerUser)
             .Include(o => o.PaymentRecordedByUser)
             .Include(o => o.OrderItems).ThenInclude(i => i.Product)
@@ -337,6 +354,7 @@ public class OrdersController : ControllerBase
         var order = await query
             .Include(o => o.Platform)
             .Include(o => o.OrderedByUser)
+            .Include(o => o.PlannedPaymentPayerUser)
             .Include(o => o.PaymentPayerUser)
             .Include(o => o.PaymentRecordedByUser)
             .Include(o => o.OrderItems).ThenInclude(i => i.Product)
@@ -362,6 +380,9 @@ public class OrdersController : ControllerBase
         order.PaymentRecordedByUser?.Username,
         order.PaidAt,
         order.PaymentEvidence is not null,
+        order.PlannedPaymentSource?.ToString(),
+        order.PlannedPaymentPayerUserId,
+        order.PlannedPaymentPayerUser?.Username,
         order.OrderItems.Select(i => new OrderItemResponse(
             i.Id, i.ProductId, i.Product.Name, i.Qty, i.UnitPrice, i.Status.ToString(), i.ReturnedQty,
             i.TrackingNo, i.Courier, i.ArrivedAt, i.CancelledAt)).ToList()

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress,
+  Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
@@ -18,6 +20,7 @@ const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' 
 export function InventoryPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<InventoryItemResponse[]>([]);
+  const [expandedSkus, setExpandedSkus] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -120,9 +123,49 @@ export function InventoryPage() {
   const canReturn = (item: InventoryItemResponse) =>
     item.qtyOnHand > 0 && (user?.role === 'admin' || user?.username === item.orderedByUsername);
 
+  const skuGroups = useMemo(() => {
+    const grouped = new Map<string, InventoryItemResponse[]>();
+    items.forEach((item) => {
+      const lots = grouped.get(item.skuCode) ?? [];
+      lots.push(item);
+      grouped.set(item.skuCode, lots);
+    });
+
+    return Array.from(grouped, ([skuCode, groupItems]) => {
+      const lots = [...groupItems].sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt));
+      const qtyReceived = lots.reduce((sum, item) => sum + item.qtyReceived, 0);
+      const qtyOnHand = lots.reduce((sum, item) => sum + item.qtyOnHand, 0);
+      const stockValue = lots.reduce((sum, item) => sum + item.qtyOnHand * item.costPerUnit, 0);
+      const receivedValue = lots.reduce((sum, item) => sum + item.qtyReceived * item.costPerUnit, 0);
+      const averageCost = qtyOnHand > 0 ? stockValue / qtyOnHand : qtyReceived > 0 ? receivedValue / qtyReceived : 0;
+
+      return {
+        skuCode,
+        productId: lots[0].productId,
+        productName: lots[0].productName,
+        lots,
+        qtyReceived,
+        qtyOnHand,
+        stockValue,
+        averageCost,
+        latestReceivedAt: lots[0].receivedAt,
+        status: (qtyOnHand > 0 ? 'InStock' : 'Depleted') as InventoryItemResponse['status'],
+      };
+    }).sort((a, b) => a.skuCode.localeCompare(b.skuCode, 'th'));
+  }, [items]);
+
+  const toggleSku = (skuCode: string) => {
+    setExpandedSkus((current) => {
+      const next = new Set(current);
+      if (next.has(skuCode)) next.delete(skuCode);
+      else next.add(skuCode);
+      return next;
+    });
+  };
+
   return (
     <>
-      <PageHeader title="Inventory list" subtitle="รายการของในคลัง (sku, qty_on_hand, cost/unit, received_at) พร้อมปุ่มเบิกออก" />
+      <PageHeader title="คลังสินค้า" subtitle="ยอดรวมแยกตาม SKU และขยายดูรายละเอียดแต่ละล็อตได้" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดคลังสินค้า" sx={{ mb: 2 }} />}
@@ -143,70 +186,167 @@ export function InventoryPage() {
           <TableHead>
             <TableRow>
               <TableCell>SKU</TableCell>
-              <TableCell>สินค้า</TableCell>
-              <TableCell align="right">รับเข้า</TableCell>
-              <TableCell align="right">คงเหลือ</TableCell>
-              <TableCell align="right">ต้นทุน/ชิ้น</TableCell>
+              <TableCell>สินค้า / ล็อต</TableCell>
+              <TableCell align="right">รับเข้ารวม</TableCell>
+              <TableCell align="right">คงเหลือรวม</TableCell>
+              <TableCell align="right">ต้นทุนเฉลี่ย / มูลค่าคงเหลือ</TableCell>
               <TableCell>สถานะ</TableCell>
-              <TableCell>รับเข้าเมื่อ</TableCell>
-              <TableCell align="right">จัดการ</TableCell>
+              <TableCell>รับเข้าล่าสุด</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id} hover>
-                <TableCell>{item.skuCode}</TableCell>
-                <TableCell>{item.productName}</TableCell>
-                <TableCell align="right">{item.qtyReceived}</TableCell>
-                <TableCell align="right">{item.qtyOnHand}</TableCell>
-                <TableCell align="right">{thb.format(item.costPerUnit)}</TableCell>
-                <TableCell><StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} /></TableCell>
-                <TableCell>{new Date(item.receivedAt).toLocaleDateString('th-TH')}</TableCell>
-                <TableCell align="right">
-                  {item.status === 'InStock' && (
-                    <Button size="small" onClick={() => openWithdraw(item)}>เบิกออก</Button>
-                  )}
-                  {canReturn(item) && (
-                    <Button size="small" color="warning" onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && items.length === 0 && (
-              <TableRow><TableCell colSpan={8} align="center">ไม่มีของในคลัง</TableCell></TableRow>
+            {skuGroups.map((group) => {
+              const expanded = expandedSkus.has(group.skuCode);
+              const detailsId = `sku-lots-${group.productId}`;
+              return (
+                <Fragment key={group.skuCode}>
+                  <TableRow hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <IconButton
+                          size="small"
+                          aria-label={expanded ? `ย่อรายการล็อต SKU ${group.skuCode}` : `ขยายรายการล็อต SKU ${group.skuCode}`}
+                          aria-expanded={expanded}
+                          aria-controls={expanded ? detailsId : undefined}
+                          onClick={() => toggleSku(group.skuCode)}
+                          sx={{ minWidth: 40, minHeight: 40 }}
+                        >
+                          {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+                        </IconButton>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{group.skuCode}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{group.productName}</Typography>
+                      <Typography variant="caption" color="text.secondary">{group.lots.length} ล็อตสินค้า</Typography>
+                    </TableCell>
+                    <TableCell align="right">{group.qtyReceived}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>{group.qtyOnHand}</TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2">{thb.format(group.averageCost)} / ชิ้น</Typography>
+                      <Typography variant="caption" color="text.secondary">มูลค่าคงเหลือ {thb.format(group.stockValue)}</Typography>
+                    </TableCell>
+                    <TableCell><StatusBadge status={group.status} label={inventoryItemStatusLabel[group.status] ?? group.status} /></TableCell>
+                    <TableCell>{new Date(group.latestReceivedAt).toLocaleDateString('th-TH')}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} sx={{ p: 0, borderBottom: expanded ? undefined : 0 }}>
+                      <Collapse id={detailsId} in={expanded} timeout="auto" unmountOnExit>
+                        <TableContainer sx={{ px: 2, py: 1 }}>
+                          <Table size="small" aria-label={`ล็อตสินค้า SKU ${group.skuCode}`}>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>ออเดอร์ / ผู้สั่ง</TableCell>
+                                <TableCell>รับเข้าเมื่อ</TableCell>
+                                <TableCell align="right">รับเข้า</TableCell>
+                                <TableCell align="right">คงเหลือ</TableCell>
+                                <TableCell align="right">ต้นทุน/ชิ้น</TableCell>
+                                <TableCell>สถานะ</TableCell>
+                                <TableCell align="right">จัดการล็อตนี้</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {group.lots.map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell>
+                                    <Typography variant="body2">{item.platformCode}: {item.platformOrderNo}</Typography>
+                                    <Typography variant="caption" color="text.secondary">ผู้สั่ง {item.orderedByUsername}</Typography>
+                                  </TableCell>
+                                  <TableCell>{new Date(item.receivedAt).toLocaleDateString('th-TH')}</TableCell>
+                                  <TableCell align="right">{item.qtyReceived}</TableCell>
+                                  <TableCell align="right" sx={{ fontWeight: 600 }}>{item.qtyOnHand}</TableCell>
+                                  <TableCell align="right">{thb.format(item.costPerUnit)}</TableCell>
+                                  <TableCell><StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} /></TableCell>
+                                  <TableCell align="right">
+                                    {item.status === 'InStock' && <Button size="small" onClick={() => openWithdraw(item)}>เบิกออก</Button>}
+                                    {canReturn(item) && <Button size="small" color="warning" onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
+              );
+            })}
+            {!loading && skuGroups.length === 0 && (
+              <TableRow><TableCell colSpan={7} align="center">ไม่มีของในคลัง</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
-        {items.map((item) => (
-          <Paper key={item.id} variant="outlined" sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>SKU: {item.skuCode}</Typography>
-                <Typography variant="caption" color="text.secondary">ออเดอร์ {item.platformCode}: {item.platformOrderNo}</Typography>
+        {skuGroups.map((group) => {
+          const expanded = expandedSkus.has(group.skuCode);
+          const detailsId = `sku-mobile-lots-${group.productId}`;
+          return (
+            <Paper key={group.skuCode} variant="outlined" sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{group.productName}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>SKU: {group.skuCode} · {group.lots.length} ล็อต</Typography>
+                </Box>
+                <IconButton
+                  aria-label={expanded ? `ย่อรายการล็อต SKU ${group.skuCode}` : `ขยายรายการล็อต SKU ${group.skuCode}`}
+                  aria-expanded={expanded}
+                  aria-controls={expanded ? detailsId : undefined}
+                  onClick={() => toggleSku(group.skuCode)}
+                  sx={{ minWidth: 44, minHeight: 44, mt: -0.75, mr: -0.75 }}
+                >
+                  {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+                </IconButton>
               </Box>
-              <StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} />
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">รับเข้า / คงเหลือ</Typography>
-              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{item.qtyReceived} / {item.qtyOnHand}</Typography>
-              <Typography variant="body2" color="text.secondary">ต้นทุน/ชิ้น</Typography>
-              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{thb.format(item.costPerUnit)}</Typography>
-              <Typography variant="body2" color="text.secondary">รับเข้าเมื่อ</Typography>
-              <Typography variant="body2">{new Date(item.receivedAt).toLocaleDateString('th-TH')}</Typography>
-            </Box>
-            {item.status === 'InStock' && (
-              <Button fullWidth variant="outlined" sx={{ mt: 2, minHeight: 44 }} onClick={() => openWithdraw(item)}>เบิกออก</Button>
-            )}
-            {canReturn(item) && (
-              <Button fullWidth variant="outlined" color="warning" sx={{ mt: 1, minHeight: 44 }} onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>
-            )}
-          </Paper>
-        ))}
-        {!loading && items.length === 0 && (
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'center', mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">รับเข้ารวม</Typography>
+                <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{group.qtyReceived} ชิ้น</Typography>
+                <Typography variant="body2" color="text.secondary">คงเหลือรวม</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{group.qtyOnHand} ชิ้น</Typography>
+                <Typography variant="body2" color="text.secondary">ต้นทุนเฉลี่ย / มูลค่าคงเหลือ</Typography>
+                <Typography variant="body2" sx={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {thb.format(group.averageCost)} / {thb.format(group.stockValue)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">สถานะ / รับเข้าล่าสุด</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 0.75 }}>
+                  <StatusBadge status={group.status} label={inventoryItemStatusLabel[group.status] ?? group.status} />
+                  <Typography variant="caption">{new Date(group.latestReceivedAt).toLocaleDateString('th-TH')}</Typography>
+                </Box>
+              </Box>
+              <Collapse id={detailsId} in={expanded} timeout="auto" unmountOnExit>
+                <Box sx={{ mt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                  {group.lots.map((item) => (
+                    <Box key={item.id} sx={{ pt: 1.5, pb: 1, borderBottom: 1, borderColor: 'divider' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+                        {item.platformCode}: {item.platformOrderNo}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ผู้สั่ง {item.orderedByUsername} · รับเข้า {new Date(item.receivedAt).toLocaleDateString('th-TH')}
+                      </Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 0.5, mt: 1 }}>
+                        <Typography variant="body2" color="text.secondary">รับเข้า / คงเหลือ</Typography>
+                        <Typography variant="body2">{item.qtyReceived} / {item.qtyOnHand} ชิ้น</Typography>
+                        <Typography variant="body2" color="text.secondary">ต้นทุน/ชิ้น</Typography>
+                        <Typography variant="body2">{thb.format(item.costPerUnit)}</Typography>
+                        <Typography variant="body2" color="text.secondary">สถานะ</Typography>
+                        <Box sx={{ justifySelf: 'end' }}><StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} /></Box>
+                      </Box>
+                      {(item.status === 'InStock' || canReturn(item)) && (
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                          {item.status === 'InStock' && <Button fullWidth variant="outlined" sx={{ minHeight: 44 }} onClick={() => openWithdraw(item)}>เบิกออก</Button>}
+                          {canReturn(item) && <Button fullWidth variant="outlined" color="warning" sx={{ minHeight: 44 }} onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>}
+                        </Box>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              </Collapse>
+            </Paper>
+          );
+        })}
+        {!loading && skuGroups.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีของในคลัง</Paper>
         )}
       </Box>

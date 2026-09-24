@@ -1,6 +1,6 @@
 namespace P2S.Api.Data.Entities;
 
-/// <summary>One record per single order placed on a platform (SP/TT/AM), with its actual payer and amount recorded when paid.</summary>
+/// <summary>One platform order, with its planned payment routing and actual payment recorded separately.</summary>
 public class PurchaseOrder
 {
     public int Id { get; set; }
@@ -13,6 +13,9 @@ public class PurchaseOrder
     public string PlatformOrderNo { get; set; } = null!;
     public decimal TotalAmount { get; set; }
     public decimal? ActualPaidAmount { get; set; }
+    public PaymentSource? PlannedPaymentSource { get; set; }
+    public int? PlannedPaymentPayerUserId { get; set; }
+    public User? PlannedPaymentPayerUser { get; set; }
     public PaymentSource? PaymentSource { get; set; }
     public int? PaymentPayerUserId { get; set; }
     public User? PaymentPayerUser { get; set; }

@@ -71,6 +71,9 @@ export interface PurchaseOrderResponse {
   paymentRecordedByUsername: string | null;
   paidAt: string | null;
   hasPaymentEvidence: boolean;
+  plannedPaymentSource: PaymentSource | null;
+  plannedPaymentPayerUserId: number | null;
+  plannedPaymentPayerUsername: string | null;
   items: OrderItemResponse[];
 }
 
