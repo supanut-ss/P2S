@@ -1,0 +1,14 @@
+interface:
+  display_name: GPT-6 Sol Project Leader
+  short_description: ให้ GPT-6 Sol แบ่งงาน คุมคุณภาพ และส่งมอบโปรเจกต์
+  default_prompt: Use $manage-programming-project to lead this programming project,
+    delegate suitable tasks, and verify the final result.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
