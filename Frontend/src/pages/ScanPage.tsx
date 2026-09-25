@@ -1,11 +1,13 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Card, CardContent, Chip,
   Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, LinearProgress,
   Stack, TextField, Typography,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { PageHeader } from '../components/PageHeader';
+import { BarcodeScannerDialog } from '../components/BarcodeScannerDialog';
 import { cancelOrderItem, lookupGoodsReceiptOrder, receiveGoodsOrder, reverseGoodsReceipt } from '../api/deliveriesApi';
 import { useAuth } from '../auth/AuthContext';
 import type { GoodsReceiptOrderLineResponse, GoodsReceiptOrderResponse } from '../types/models';
@@ -47,8 +49,18 @@ export function ScanPage() {
   const [reverseTarget, setReverseTarget] = useState<{ order: GoodsReceiptOrderResponse; eventId: number } | null>(null);
   const [reverseReason, setReverseReason] = useState('');
   const [reversing, setReversing] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const orderNoInput = useRef<HTMLInputElement>(null);
   const busyOrderRef = useRef(new Set<number>());
+
+  const handleOrderNoDetected = useCallback((code: string) => {
+    setOrderNo(code.trim());
+    setScannerOpen(false);
+    // Auto-submit after scan
+    setTimeout(() => {
+      orderNoInput.current?.form?.requestSubmit();
+    }, 100);
+  }, []);
 
   const handleLookup = async () => {
     const exactOrderNo = orderNo.trim();
@@ -216,7 +228,7 @@ export function ScanPage() {
 
       <Card component="form" variant="outlined" onSubmit={(event) => { event.preventDefault(); void handleLookup(); }} sx={{ mb: 3 }}>
         <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) auto' }, gap: 1.5, alignItems: 'start' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(0, 1fr) auto auto' }, gap: 1.5, alignItems: 'start' }}>
             <TextField
               inputRef={orderNoInput}
               label="เลข Order"
@@ -228,13 +240,35 @@ export function ScanPage() {
               slotProps={{ htmlInput: { 'aria-label': 'เลข Order', inputMode: 'text' } }}
               helperText="ระบบค้นหาด้วยเลขที่ตรงกัน เพื่อป้องกันรับผิด Order"
             />
-            <Button type="submit" variant="contained" disabled={!orderNo.trim() || searching || busyOrderIds.size > 0} sx={{ minHeight: 48, px: 3, width: { xs: '100%', sm: 'auto' } }}>
+            <Button
+              variant="outlined"
+              startIcon={<CameraAltIcon />}
+              onClick={() => setScannerOpen(true)}
+              disabled={searching || busyOrderIds.size > 0}
+              sx={{ minHeight: 56, px: 2, width: { xs: 'auto', sm: 'auto' } }}
+              aria-label="สแกนบาร์โค้ดด้วยกล้อง"
+            >
+              สแกน
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={!orderNo.trim() || searching || busyOrderIds.size > 0}
+              sx={{ minHeight: 56, px: 3, width: { xs: '100%', sm: 'auto' }, gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+            >
               {searching ? 'กำลังค้นหา…' : 'ค้นหา Order'}
             </Button>
           </Box>
           {searching && <LinearProgress aria-label="กำลังค้นหา Order" sx={{ mt: 2 }} />}
         </CardContent>
       </Card>
+
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        title="สแกนเลข Order"
+        onClose={() => setScannerOpen(false)}
+        onDetected={handleOrderNoDetected}
+      />
 
       <Stack spacing={2}>
         {orders.map((order) => {
