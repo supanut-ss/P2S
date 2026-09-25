@@ -123,6 +123,85 @@ export function createAppTheme(mode: PaletteMode) {
           },
         },
       },
+      MuiTableContainer: {
+        styleOverrides: {
+          root: {
+            borderRadius: tokens.radius.lg,
+            WebkitOverflowScrolling: 'touch',
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${color.border} transparent`,
+            '&::-webkit-scrollbar': { height: 8, width: 8 },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: color.border,
+              borderRadius: tokens.radius.full,
+            },
+          },
+        },
+      },
+      MuiTable: {
+        styleOverrides: {
+          root: {
+            borderCollapse: 'separate',
+            borderSpacing: 0,
+          },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          root: {
+            borderColor: color.border,
+            color: color.foreground,
+            fontSize: '0.875rem',
+            lineHeight: 1.45,
+            fontVariantNumeric: 'tabular-nums',
+            verticalAlign: 'middle',
+          },
+          head: {
+            backgroundColor: color.secondary,
+            color: color.mutedForeground,
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+          },
+          sizeSmall: {
+            padding: '10px 14px',
+          },
+          alignRight: {
+            whiteSpace: 'nowrap',
+          },
+        },
+      },
+      MuiTableRow: {
+        styleOverrides: {
+          root: {
+            '&.MuiTableRow-hover:hover > .MuiTableCell-root': {
+              backgroundColor: dark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(20, 28, 28, 0.025)',
+            },
+            '&:last-child > .MuiTableCell-root': {
+              borderBottom: 0,
+            },
+          },
+        },
+      },
+      MuiTableSortLabel: {
+        styleOverrides: {
+          root: {
+            color: color.mutedForeground,
+            fontWeight: 600,
+            '&:hover': { color: color.primaryTextHover },
+            '&.Mui-active': {
+              color: color.primaryText,
+              fontWeight: 700,
+            },
+            '&.Mui-active .MuiTableSortLabel-icon': {
+              opacity: 1,
+              color: color.primaryText,
+            },
+          },
+          icon: {
+            opacity: 0.45,
+          },
+        },
+      },
     },
   });
 }
