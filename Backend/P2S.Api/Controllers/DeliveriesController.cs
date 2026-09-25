@@ -69,15 +69,25 @@ public class DeliveriesController : ControllerBase
     }
 
     [HttpGet("orders/lookup")]
-    public async Task<ActionResult<List<GoodsReceiptOrderResponse>>> LookupOrder([FromQuery] string orderNo, CancellationToken ct)
+    public async Task<ActionResult<List<GoodsReceiptOrderResponse>>> LookupOrder([FromQuery] string? orderNo, CancellationToken ct)
     {
         var exactOrderNo = orderNo?.Trim();
-        if (string.IsNullOrWhiteSpace(exactOrderNo)) return BadRequest(new { message = "กรอกเลข Order ก่อนค้นหา" });
 
         var query = _db.PurchaseOrders
             .Include(order => order.Platform)
             .Include(order => order.OrderItems).ThenInclude(item => item.Product)
-            .Where(order => order.PlatformOrderNo == exactOrderNo);
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(exactOrderNo))
+        {
+            query = query.Where(order => order.PlatformOrderNo.Contains(exactOrderNo)
+                || (order.TrackingNo != null && order.TrackingNo.Contains(exactOrderNo))
+                || (order.PackageName != null && order.PackageName.Contains(exactOrderNo)));
+        }
+        else
+        {
+            query = query.Where(order => order.OrderItems.Any(item => item.Status == OrderItemStatus.Pending && item.ReceivedQty < item.Qty));
+        }
 
         if (!User.IsInRole("admin"))
         {

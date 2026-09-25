@@ -1,8 +1,10 @@
 import { apiClient } from './client';
 import type { GoodsReceiptOrderResponse } from '../types/models';
 
-export async function lookupGoodsReceiptOrder(orderNo: string): Promise<GoodsReceiptOrderResponse[]> {
-  const { data } = await apiClient.get<GoodsReceiptOrderResponse[]>('/api/deliveries/orders/lookup', { params: { orderNo } });
+export async function lookupGoodsReceiptOrder(orderNo?: string): Promise<GoodsReceiptOrderResponse[]> {
+  const { data } = await apiClient.get<GoodsReceiptOrderResponse[]>('/api/deliveries/orders/lookup', {
+    params: orderNo ? { orderNo } : undefined,
+  });
   return data;
 }
 
