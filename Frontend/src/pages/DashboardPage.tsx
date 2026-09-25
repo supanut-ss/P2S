@@ -31,6 +31,7 @@ export function DashboardPage() {
 
   const handleRunNow = async () => {
     setLoading(true);
+    setError(null);
     try {
       setSnapshot(await runSnapshotNow());
     } catch {
