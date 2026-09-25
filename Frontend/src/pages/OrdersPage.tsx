@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
-  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel,
   TextField, Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -149,6 +149,24 @@ export function OrdersPage() {
     else next.add(orderId);
     return next;
   });
+
+  const handleSort = (field: OrderSortField) => {
+    if (sortField === field) {
+      setSortDirection((current) => current === 'asc' ? 'desc' : 'asc');
+      return;
+    }
+    setSortField(field);
+  };
+
+  const sortLabel = (field: OrderSortField, label: string) => (
+    <TableSortLabel
+      active={sortField === field}
+      direction={sortField === field ? sortDirection : 'asc'}
+      onClick={() => handleSort(field)}
+    >
+      {label}
+    </TableSortLabel>
+  );
 
   const invalidDateRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
   const filteredOrders = useMemo(() => {
@@ -351,26 +369,28 @@ export function OrdersPage() {
           value={itemFilter}
           onChange={(event) => setItemFilter(event.target.value)}
         />
-        <ResponsiveSelectField
-          label="เรียงตาม"
-          value={sortField}
-          options={[
-            { value: 'date', label: 'วันที่สั่ง' },
-            { value: 'status', label: 'สถานะ' },
-            { value: 'item', label: 'สินค้า / Item' },
-            { value: 'price', label: 'ยอด Order / จ่ายจริง' },
-          ]}
-          onChange={(value) => setSortField(String(value) as OrderSortField)}
-        />
-        <ResponsiveSelectField
-          label="ลำดับ"
-          value={sortDirection}
-          options={[
-            { value: 'desc', label: 'ใหม่ / มาก / ฮ-ก ก่อน' },
-            { value: 'asc', label: 'เก่า / น้อย / ก-ฮ ก่อน' },
-          ]}
-          onChange={(value) => setSortDirection(String(value) as SortDirection)}
-        />
+        <Box sx={{ display: { xs: 'grid', lg: 'none' }, gridColumn: { xs: 'auto', sm: '1 / -1' }, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
+          <ResponsiveSelectField
+            label="เรียงตาม"
+            value={sortField}
+            options={[
+              { value: 'date', label: 'วันที่สั่ง' },
+              { value: 'status', label: 'สถานะ' },
+              { value: 'item', label: 'สินค้า / Item' },
+              { value: 'price', label: 'ยอด Order / จ่ายจริง' },
+            ]}
+            onChange={(value) => setSortField(String(value) as OrderSortField)}
+          />
+          <ResponsiveSelectField
+            label="ลำดับ"
+            value={sortDirection}
+            options={[
+              { value: 'desc', label: 'ใหม่ / มาก / ฮ-ก ก่อน' },
+              { value: 'asc', label: 'เก่า / น้อย / ก-ฮ ก่อน' },
+            ]}
+            onChange={(value) => setSortDirection(String(value) as SortDirection)}
+          />
+        </Box>
         <Box sx={{ display: 'flex', gap: 1, gridColumn: { xs: 'auto', sm: '1 / -1' }, flexWrap: 'wrap' }}>
           <Button variant="outlined" onClick={handleSearch} sx={{ minHeight: 48, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>ค้นหา Order</Button>
           <Button
@@ -395,12 +415,23 @@ export function OrdersPage() {
           <TableHead>
             <TableRow>
               <TableCell>แพลตฟอร์ม</TableCell>
-              <TableCell>เลขออเดอร์</TableCell>
+              <TableCell sortDirection={sortField === 'item' ? sortDirection : false}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Typography variant="body2">เลขออเดอร์</Typography>
+                  {sortLabel('item', 'สินค้า / Item')}
+                </Box>
+              </TableCell>
               <TableCell>ผู้สั่ง</TableCell>
               <TableCell>แผนการจ่าย</TableCell>
-              <TableCell align="right">ยอดสินค้า / จ่ายจริง</TableCell>
-              <TableCell>สถานะ</TableCell>
-              <TableCell>วันที่สั่ง</TableCell>
+              <TableCell align="right" sortDirection={sortField === 'price' ? sortDirection : false}>
+                {sortLabel('price', 'ยอดสินค้า / จ่ายจริง')}
+              </TableCell>
+              <TableCell sortDirection={sortField === 'status' ? sortDirection : false}>
+                {sortLabel('status', 'สถานะ')}
+              </TableCell>
+              <TableCell sortDirection={sortField === 'date' ? sortDirection : false}>
+                {sortLabel('date', 'วันที่สั่ง')}
+              </TableCell>
               <TableCell align="right">จัดการ</TableCell>
             </TableRow>
           </TableHead>
