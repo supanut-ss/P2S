@@ -1,11 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
-  LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, TextField, Typography,
+  LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import type { GridColDef, GridRowSelectionModel } from '@mui/x-data-grid';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
+import {
+  AppDataGrid,
+  AppDataGridToolbar,
+  DataGridStatusChip,
+} from '../components/data-grid';
 import { reimbursementStatusLabel } from '../theme/tokens';
 import { approveReimbursement, correctOrderPaymentAmount, createReimbursement, listReimbursements, payReimbursement } from '../api/reimbursementsApi';
 import { getPaymentEvidence, listOrders } from '../api/ordersApi';
@@ -16,6 +22,14 @@ import { useAuth } from '../auth/AuthContext';
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 type ReimbursementOrderDetail = ReimbursementResponse['purchaseOrders'][number];
 
+const reimbursementStatusOptions = [
+  { value: '', label: 'ทุกสถานะ' },
+  { value: 'Pending', label: 'รอตรวจสอบ' },
+  { value: 'Approved', label: 'อนุมัติแล้ว' },
+  { value: 'Paid', label: 'จ่ายแล้ว' },
+  { value: 'Voided', label: 'ยกเลิก' },
+];
+
 export function ReimbursementsPage() {
   const { user } = useAuth();
   const canRequestReimbursement = user?.role === 'staff' || user?.role === 'admin';
@@ -23,6 +37,7 @@ export function ReimbursementsPage() {
 
   const [reimbursements, setReimbursements] = useState<ReimbursementResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
   const [eligibleOrders, setEligibleOrders] = useState<PurchaseOrderResponse[]>([]);
   const [staffBalances, setStaffBalances] = useState<StaffBalanceResponse[]>([]);
   const [auditTarget, setAuditTarget] = useState<ReimbursementResponse | null>(null);
@@ -37,14 +52,6 @@ export function ReimbursementsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-
-  type RequestSortField = 'id' | 'requester' | 'total' | 'status' | 'requestedAt';
-  const [requestSortField, setRequestSortField] = useState<RequestSortField>('requestedAt');
-  const [requestSortDirection, setRequestSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  type EligibleSortField = 'platform' | 'orderNo' | 'amount';
-  const [eligibleSortField, setEligibleSortField] = useState<EligibleSortField>('orderNo');
-  const [eligibleSortDirection, setEligibleSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const load = async () => {
     setLoading(true);
@@ -80,6 +87,15 @@ export function ReimbursementsPage() {
     });
   };
 
+  const rowSelectionModel = useMemo<GridRowSelectionModel>(() => ({
+    type: 'include',
+    ids: new Set(selected),
+  }), [selected]);
+
+  const handleRowSelectionModelChange = (model: GridRowSelectionModel) => {
+    setSelected(new Set(Array.from(model.ids).map(Number)));
+  };
+
   const handleCreateRequest = async () => {
     if (selected.size === 0) return;
     setSubmitting(true);
@@ -97,7 +113,7 @@ export function ReimbursementsPage() {
     }
   };
 
-  const handleApprove = async (id: number) => {
+  const handleApprove = useCallback(async (id: number) => {
     if (busyId !== null) return;
     setBusyId(id);
     try {
@@ -108,9 +124,10 @@ export function ReimbursementsPage() {
     } finally {
       setBusyId(null);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busyId]);
 
-  const handlePay = async (id: number) => {
+  const handlePay = useCallback(async (id: number) => {
     if (busyId !== null) return;
     setBusyId(id);
     try {
@@ -121,61 +138,36 @@ export function ReimbursementsPage() {
     } finally {
       setBusyId(null);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busyId]);
 
   const selectedTotal = eligibleOrders.filter((o) => selected.has(o.id)).reduce((sum, o) => sum + (o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount), 0);
 
-  const handleRequestSort = (field: RequestSortField) => {
-    if (requestSortField === field) setRequestSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setRequestSortField(field); setRequestSortDirection('asc'); }
-  };
-  const requestSortLabel = (field: RequestSortField, label: string) => (
-    <TableSortLabel active={requestSortField === field} direction={requestSortField === field ? requestSortDirection : 'asc'} onClick={() => handleRequestSort(field)}>{label}</TableSortLabel>
-  );
-  const sortedReimbursements = useMemo(() => {
-    const valueFor = (r: ReimbursementResponse): string | number => {
-      switch (requestSortField) {
-        case 'id': return r.id;
-        case 'requester': return r.requestedByUsername;
-        case 'total': return r.totalAmount;
-        case 'status': return r.status;
-        case 'requestedAt': return new Date(r.requestedAt).getTime();
-        default: return '';
-      }
-    };
-    const mult = requestSortDirection === 'asc' ? 1 : -1;
-    return [...reimbursements].sort((a, b) => {
-      const av = valueFor(a);
-      const bv = valueFor(b);
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
-      return cmp * mult;
-    });
-  }, [reimbursements, requestSortField, requestSortDirection]);
+  const filteredReimbursements = useMemo(() => {
+    if (!search.trim()) return reimbursements;
+    const q = search.trim().toLowerCase();
+    return reimbursements.filter((r) =>
+      r.id.toString().includes(q) ||
+      r.requestedByUsername.toLowerCase().includes(q) ||
+      r.purchaseOrders.some((po) =>
+        po.platformOrderNo.toLowerCase().includes(q) ||
+        po.platformCode.toLowerCase().includes(q) ||
+        po.items.some((it) => it.productName.toLowerCase().includes(q))
+      )
+    );
+  }, [reimbursements, search]);
 
-  const handleEligibleSort = (field: EligibleSortField) => {
-    if (eligibleSortField === field) setEligibleSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setEligibleSortField(field); setEligibleSortDirection('asc'); }
-  };
-  const eligibleSortLabel = (field: EligibleSortField, label: string) => (
-    <TableSortLabel active={eligibleSortField === field} direction={eligibleSortField === field ? eligibleSortDirection : 'asc'} onClick={() => handleEligibleSort(field)}>{label}</TableSortLabel>
-  );
+  const sortedReimbursements = useMemo(() => {
+    return [...filteredReimbursements].sort(
+      (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
+    );
+  }, [filteredReimbursements]);
+
   const sortedEligibleOrders = useMemo(() => {
-    const valueFor = (o: PurchaseOrderResponse): string | number => {
-      switch (eligibleSortField) {
-        case 'platform': return o.platformCode;
-        case 'orderNo': return o.platformOrderNo;
-        case 'amount': return o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount;
-        default: return '';
-      }
-    };
-    const mult = eligibleSortDirection === 'asc' ? 1 : -1;
-    return [...eligibleOrders].sort((a, b) => {
-      const av = valueFor(a);
-      const bv = valueFor(b);
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
-      return cmp * mult;
-    });
-  }, [eligibleOrders, eligibleSortField, eligibleSortDirection]);
+    return [...eligibleOrders].sort((a, b) =>
+      a.platformOrderNo.localeCompare(b.platformOrderNo, 'th')
+    );
+  }, [eligibleOrders]);
 
   const renderOrderDetails = (request: ReimbursementResponse) => (
     <Stack spacing={0.75} sx={{ minWidth: 0 }}>
@@ -309,6 +301,205 @@ export function ReimbursementsPage() {
     }
   };
 
+  const staffBalanceColumns: GridColDef<StaffBalanceResponse>[] = useMemo(() => [
+    {
+      field: 'fullName',
+      headerName: 'พนักงาน',
+      flex: 1.2,
+      minWidth: 180,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {params.row.fullName}{' '}
+          <Typography component="span" variant="caption" color="text.secondary">
+            ({params.row.username})
+          </Typography>
+        </Typography>
+      ),
+    },
+    {
+      field: 'totalAdvanced',
+      headerName: 'สำรองจ่าย',
+      type: 'number',
+      width: 140,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => thb.format(value),
+    },
+    {
+      field: 'totalReimbursed',
+      headerName: 'บริษัทจ่ายคืน',
+      type: 'number',
+      width: 140,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => thb.format(value),
+    },
+    {
+      field: 'totalRefundDue',
+      headerName: 'คืน/ปรับยอดค้างสุทธิ',
+      type: 'number',
+      width: 170,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => thb.format(value),
+    },
+    {
+      field: 'totalAdjustments',
+      headerName: 'ปรับยอดก่อนเบิก',
+      type: 'number',
+      width: 150,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => thb.format(value),
+    },
+    {
+      field: 'balance',
+      headerName: 'ยอดค้างสุทธิ',
+      type: 'number',
+      width: 150,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          {thb.format(params.row.balance)}
+        </Typography>
+      ),
+    },
+  ], []);
+
+  const eligibleColumns: GridColDef<PurchaseOrderResponse>[] = useMemo(() => [
+    {
+      field: 'platformCode',
+      headerName: 'แพลตฟอร์ม',
+      width: 130,
+    },
+    {
+      field: 'platformOrderNo',
+      headerName: 'เลขออเดอร์ / สินค้า',
+      flex: 2,
+      minWidth: 260,
+      renderCell: (params) => {
+        const o = params.row;
+        return (
+          <Box sx={{ py: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {o.platformOrderNo}
+            </Typography>
+            <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+              {o.items.map((item) => (
+                <Typography key={item.id} variant="caption" color="text.secondary">
+                  {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
+                  {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'reimbursableAmount',
+      headerName: 'ยอดเบิกสุทธิ',
+      type: 'number',
+      width: 160,
+      headerAlign: 'right',
+      align: 'right',
+      valueGetter: (_v, row) => row.reimbursableAmount ?? row.actualPaidAmount ?? row.totalAmount,
+      valueFormatter: (value: number) => thb.format(value),
+    },
+  ], []);
+
+  const reimbursementColumns: GridColDef<ReimbursementResponse>[] = useMemo(() => [
+    {
+      field: 'id',
+      headerName: '#',
+      width: 70,
+    },
+    {
+      field: 'requestedByUsername',
+      headerName: 'ผู้ขอเบิก',
+      width: 140,
+    },
+    {
+      field: 'purchaseOrders',
+      headerName: 'ออเดอร์ / รายการสินค้า',
+      flex: 2,
+      minWidth: 280,
+      sortable: false,
+      renderCell: (params) => (
+        <Box sx={{ py: 1 }}>
+          {renderOrderDetails(params.row)}
+        </Box>
+      ),
+    },
+    {
+      field: 'totalAmount',
+      headerName: 'ยอดรวม',
+      type: 'number',
+      width: 150,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => thb.format(value),
+    },
+    {
+      field: 'status',
+      headerName: 'สถานะ',
+      width: 160,
+      renderCell: (params) => (
+        <DataGridStatusChip
+          status={params.value}
+          label={reimbursementStatusLabel[params.value] ?? params.value}
+        />
+      ),
+    },
+    {
+      field: 'requestedAt',
+      headerName: 'วันที่ขอ',
+      width: 130,
+      valueFormatter: (value: string) => new Date(value).toLocaleDateString('th-TH'),
+    },
+    {
+      field: 'actions',
+      headerName: 'จัดการ',
+      width: 200,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => {
+        const r = params.row;
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', width: '100%', py: 0.5 }}>
+            <Button size="small" onClick={() => setAuditTarget(r)}>
+              ตรวจสอบ
+            </Button>
+            {canReviewReimbursements && r.status === 'Pending' && (
+              <Button
+                size="small"
+                variant="contained"
+                disabled={busyId !== null}
+                onClick={() => handleApprove(r.id)}
+              >
+                อนุมัติ
+              </Button>
+            )}
+            {canReviewReimbursements && r.status === 'Approved' && (
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                disabled={busyId !== null}
+                onClick={() => handlePay(r.id)}
+              >
+                จ่ายเงิน
+              </Button>
+            )}
+          </Box>
+        );
+      },
+    },
+  ], [busyId, canReviewReimbursements, handleApprove, handlePay]);
+
   return (
     <>
       <PageHeader
@@ -326,31 +517,20 @@ export function ReimbursementsPage() {
         <Paper component="section" aria-labelledby="staff-balances-title" variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
           <Typography id="staff-balances-title" variant="subtitle1" sx={{ fontWeight: 700 }}>ยอดค้างแยกตามพนักงาน</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>ยอดบวก = บริษัทค้างจ่ายพนักงาน · ยอดลบ = พนักงานต้องคืนบริษัท</Typography>
-          <TableContainer sx={{ display: { xs: 'none', lg: 'block' } }}>
-            <Table size="small">
-              <TableHead><TableRow>
-                <TableCell>พนักงาน</TableCell>
-                <TableCell align="right">สำรองจ่าย</TableCell>
-                <TableCell align="right">บริษัทจ่ายคืน</TableCell>
-                <TableCell align="right">คืน/ปรับยอดค้างสุทธิ</TableCell>
-                <TableCell align="right">ปรับยอดก่อนเบิก</TableCell>
-                <TableCell align="right">ยอดค้างสุทธิ</TableCell>
-              </TableRow></TableHead>
-              <TableBody>
-                {staffBalances.map((balance) => (
-                  <TableRow key={balance.userId}>
-                    <TableCell>{balance.fullName} ({balance.username})</TableCell>
-                    <TableCell align="right">{thb.format(balance.totalAdvanced)}</TableCell>
-                    <TableCell align="right">{thb.format(balance.totalReimbursed)}</TableCell>
-                    <TableCell align="right">{thb.format(balance.totalRefundDue)}</TableCell>
-                    <TableCell align="right">{thb.format(balance.totalAdjustments)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>{thb.format(balance.balance)}</TableCell>
-                  </TableRow>
-                ))}
-                {!loading && staffBalances.length === 0 && <TableRow><TableCell colSpan={6} align="center">ยังไม่มีรายการค้าง</TableCell></TableRow>}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+            <AppDataGrid
+              rows={staffBalances}
+              columns={staffBalanceColumns}
+              getRowId={(row) => row.userId}
+              loading={loading}
+              hideFooter={staffBalances.length <= 5}
+              initialState={{
+                pagination: { paginationModel: { pageSize: 5 } },
+              }}
+              pageSizeOptions={[5, 10]}
+              autoHeight
+            />
+          </Box>
           <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' } }}>
             {staffBalances.map((balance) => (
               <Box key={balance.userId} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
@@ -384,42 +564,24 @@ export function ReimbursementsPage() {
 
       {canRequestReimbursement && (
         <>
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>ออเดอร์ที่คุณสำรองจ่ายและรอขอเบิก</Typography>
-      <TableContainer component={Paper} variant="outlined" sx={{ mb: 1, display: { xs: 'none', lg: 'block' } }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox" />
-              <TableCell>{eligibleSortLabel('platform', 'แพลตฟอร์ม')}</TableCell>
-              <TableCell>{eligibleSortLabel('orderNo', 'เลขออเดอร์ / สินค้า')}</TableCell>
-              <TableCell align="right">{eligibleSortLabel('amount', 'ยอดเบิกสุทธิ')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sortedEligibleOrders.map((o) => (
-              <TableRow key={o.id} hover onClick={() => toggleSelect(o.id)} sx={{ cursor: 'pointer' }}>
-                <TableCell padding="checkbox"><Checkbox checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)} onClick={(event) => event.stopPropagation()} slotProps={{ input: { 'aria-label': `เลือกออเดอร์ ${o.platformOrderNo}` } }} /></TableCell>
-                <TableCell>{o.platformCode}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.platformOrderNo}</Typography>
-                  <Stack spacing={0.25} sx={{ mt: 0.5 }}>
-                    {o.items.map((item) => (
-                      <Typography key={item.id} variant="caption" color="text.secondary">
-                        {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
-                        {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
-                      </Typography>
-                    ))}
-                  </Stack>
-                </TableCell>
-                <TableCell align="right">{thb.format(o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount)}</TableCell>
-              </TableRow>
-            ))}
-            {!loading && eligibleOrders.length === 0 && (
-              <TableRow><TableCell colSpan={4} align="center">ไม่มีออเดอร์ที่รอขอเบิก</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>ออเดอร์ที่คุณสำรองจ่ายและรอขอเบิก</Typography>
+          <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 2 }}>
+        <AppDataGrid
+          rows={eligibleOrders}
+          columns={eligibleColumns}
+          getRowId={(row) => row.id}
+          loading={loading}
+          checkboxSelection
+          rowSelectionModel={rowSelectionModel}
+          onRowSelectionModelChange={handleRowSelectionModelChange}
+          getRowHeight={() => 'auto'}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 5 } },
+          }}
+          pageSizeOptions={[5, 10, 20]}
+          autoHeight
+        />
+      </Box>
       <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' }, mb: 2 }}>
         {sortedEligibleOrders.map((o) => (
           <Card key={o.id} variant="outlined">
@@ -452,58 +614,46 @@ export function ReimbursementsPage() {
         </>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1, mb: 1 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-          {user?.role === 'staff' ? 'คำขอของฉัน' : canReviewReimbursements ? 'คำขอจากพนักงาน' : 'คำขอเบิกเงิน'}
-        </Typography>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+        {user?.role === 'staff' ? 'คำขอของฉัน' : canReviewReimbursements ? 'คำขอจากพนักงาน' : 'คำขอเบิกเงิน'}
+      </Typography>
+
+      {/* Mobile filter */}
+      <Box sx={{ display: { xs: 'block', lg: 'none' }, mb: 1.5 }}>
         <ResponsiveSelectField
           label="สถานะ"
           size="small"
           value={statusFilter}
           options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(reimbursementStatusLabel).map(([value, label]) => ({ value, label }))]}
           onChange={(value) => setStatusFilter(String(value))}
-          sx={{ minWidth: { sm: 180 }, width: { xs: '100%', sm: 'auto' } }}
+          sx={{ width: '100%' }}
         />
       </Box>
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>{requestSortLabel('id', '#')}</TableCell>
-              <TableCell>{requestSortLabel('requester', 'ผู้ขอเบิก')}</TableCell>
-              <TableCell>ออเดอร์ / รายการสินค้า</TableCell>
-              <TableCell align="right">{requestSortLabel('total', 'ยอดรวม')}</TableCell>
-              <TableCell>{requestSortLabel('status', 'สถานะ')}</TableCell>
-              <TableCell>{requestSortLabel('requestedAt', 'วันที่ขอ')}</TableCell>
-              <TableCell align="right">จัดการ</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sortedReimbursements.map((r) => (
-              <TableRow key={r.id} hover>
-                <TableCell>{r.id}</TableCell>
-                <TableCell>{r.requestedByUsername}</TableCell>
-                <TableCell sx={{ minWidth: 260 }}>{renderOrderDetails(r)}</TableCell>
-                <TableCell align="right">{thb.format(r.totalAmount)}</TableCell>
-                <TableCell><StatusBadge status={r.status} label={reimbursementStatusLabel[r.status] ?? r.status} /></TableCell>
-                <TableCell>{new Date(r.requestedAt).toLocaleDateString('th-TH')}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => setAuditTarget(r)}>ตรวจสอบ</Button>
-                  {canReviewReimbursements && r.status === 'Pending' && (
-                    <Button size="small" disabled={busyId !== null} onClick={() => handleApprove(r.id)}>อนุมัติ</Button>
-                  )}
-                  {canReviewReimbursements && r.status === 'Approved' && (
-                    <Button size="small" disabled={busyId !== null} onClick={() => handlePay(r.id)}>จ่ายเงิน</Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && reimbursements.length === 0 && (
-              <TableRow><TableCell colSpan={7} align="center">ไม่มีคำขอเบิกเงิน</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+
+      {/* Desktop DataGrid */}
+      <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+        <AppDataGrid
+          rows={filteredReimbursements}
+          columns={reimbursementColumns}
+          getRowId={(row) => row.id}
+          loading={loading}
+          getRowHeight={() => 'auto'}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 10 } },
+          }}
+          pageSizeOptions={[10, 20, 50]}
+          toolbar={
+            <AppDataGridToolbar
+              statusOptions={reimbursementStatusOptions}
+              selectedStatus={statusFilter}
+              onStatusChange={(v) => setStatusFilter(v)}
+              searchValue={search}
+              onSearchChange={(v) => setSearch(v)}
+              searchPlaceholder="ค้นหาคำขอ, ผู้ขอเบิก, เลขออเดอร์, สินค้า…"
+            />
+          }
+        />
+      </Box>
       <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' } }}>
         {sortedReimbursements.map((r) => (
           <Card key={r.id} variant="outlined">

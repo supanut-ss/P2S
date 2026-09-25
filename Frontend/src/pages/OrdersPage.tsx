@@ -1,7 +1,7 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
-  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -19,6 +19,12 @@ import { createOrder, listOrders, markPaid, setTracking, type CreateOrderItemInp
 import { getPaymentPayers, getPlatforms, getProducts } from '../api/masterDataApi';
 import type { PaymentPayerResponse, PaymentSource, PlatformResponse, ProductResponse, PurchaseOrderResponse } from '../types/models';
 import { useAuth } from '../auth/AuthContext';
+import type { GridColDef } from '@mui/x-data-grid';
+import {
+  AppDataGrid,
+  AppDataGridToolbar,
+  DataGridStatusChip,
+} from '../components/data-grid';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 type OrderSortField = 'platform' | 'orderNo' | 'date' | 'status' | 'item' | 'orderedBy' | 'paymentPlan' | 'price';
@@ -154,23 +160,7 @@ export function OrdersPage() {
     return next;
   });
 
-  const handleSort = (field: OrderSortField) => {
-    if (sortField === field) {
-      setSortDirection((current) => current === 'asc' ? 'desc' : 'asc');
-      return;
-    }
-    setSortField(field);
-  };
 
-  const sortLabel = (field: OrderSortField, label: string) => (
-    <TableSortLabel
-      active={sortField === field}
-      direction={sortField === field ? sortDirection : 'asc'}
-      onClick={() => handleSort(field)}
-    >
-      {label}
-    </TableSortLabel>
-  );
 
   const invalidDateRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
   const filteredOrders = useMemo(() => {
@@ -285,14 +275,14 @@ export function OrdersPage() {
     }
   };
 
-  const openPaymentDialog = (order: PurchaseOrderResponse) => {
+  const openPaymentDialog = useCallback((order: PurchaseOrderResponse) => {
     setPaymentTarget(order);
     setPaymentSource(order.plannedPaymentSource ?? order.paymentSource ?? 'StaffAdvance');
     setActualPaidAmount(String(order.totalAmount));
     setPaymentPayerUserId(order.plannedPaymentPayerUserId ?? order.paymentPayerUserId ?? order.orderedByUserId);
     setPaymentEvidence(null);
     setPaymentError(null);
-  };
+  }, []);
 
   const handleMarkPaid = async () => {
     if (!paymentTarget || paymentPayerUserId === '') return;
@@ -325,12 +315,12 @@ export function OrdersPage() {
     }
   };
 
-  const openTrackingDialog = (order: PurchaseOrderResponse) => {
+  const openTrackingDialog = useCallback((order: PurchaseOrderResponse) => {
     setTrackingTarget(order);
     setTrackingNo(order.trackingNo ?? '');
     setTrackingCourier(order.courier ?? '');
     setTrackingError(null);
-  };
+  }, []);
 
   const handleSetTracking = async () => {
     if (!trackingTarget || trackingSaving) return;
@@ -353,6 +343,192 @@ export function OrdersPage() {
     }
   };
 
+  const columns = useMemo<GridColDef<PurchaseOrderResponse>[]>(() => [
+    {
+      field: 'platformCode',
+      headerName: 'แพลตฟอร์ม',
+      width: 110,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'platformOrderNo',
+      headerName: 'เลข Order',
+      flex: 1.2,
+      minWidth: 220,
+      renderCell: (params) => {
+        const o = params.row;
+        return (
+          <Box sx={{ py: 0.5, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {o.platformOrderNo}
+            </Typography>
+            {(o.packageName || o.shopName) && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {o.packageName && `หน้ากล่อง ${o.packageName}`}
+                {o.packageName && o.shopName && ' · '}
+                {o.shopName && `ร้าน ${o.shopName}`}
+              </Typography>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+              <Typography variant="caption" color="text.secondary">
+                Tracking {o.trackingNo || 'ยังไม่ระบุ'}{o.courier ? ` · ${o.courier}` : ''}
+              </Typography>
+              <Button
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openTrackingDialog(o);
+                }}
+                sx={{ minWidth: 32, p: 0, fontSize: '0.75rem', textTransform: 'none' }}
+              >
+                แก้ไข
+              </Button>
+            </Box>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'items',
+      headerName: 'สินค้า / Item',
+      flex: 1.4,
+      minWidth: 220,
+      renderCell: (params) => {
+        const visibleItems = filterOrderItems(params.row, itemFilter);
+        return (
+          <Box sx={{ py: 0.5, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {visibleItems[0]?.productName ?? '—'}
+            </Typography>
+            {visibleItems.length > 1 && (
+              <Typography variant="caption" color="text.secondary">
+                อีก {visibleItems.length - 1} รายการ
+              </Typography>
+            )}
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'orderedByUsername',
+      headerName: 'ผู้สั่ง',
+      width: 120,
+    },
+    {
+      field: 'paymentPlan',
+      headerName: 'แผนการจ่าย',
+      width: 160,
+      renderCell: (params) => {
+        const o = params.row;
+        const isDirect = (o.plannedPaymentSource ?? o.paymentSource) === 'CompanyDirect';
+        return (
+          <Box sx={{ py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {isDirect ? 'บริษัทจ่ายตรง' : 'สำรองจ่าย'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {o.plannedPaymentPayerUsername ?? o.paymentPayerUsername ?? o.orderedByUsername}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'totalAmount',
+      headerName: 'ยอดสินค้า / จ่ายจริง',
+      type: 'number',
+      width: 160,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {thb.format(params.row.actualPaidAmount ?? params.row.totalAmount)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'สถานะ',
+      width: 150,
+      renderCell: (params) => <DataGridStatusChip status={params.value} />,
+    },
+    {
+      field: 'orderedAt',
+      headerName: 'วันที่สั่ง',
+      width: 120,
+      valueFormatter: (value) => new Date(value).toLocaleDateString('th-TH'),
+    },
+    {
+      field: 'actions',
+      headerName: 'จัดการ',
+      width: 130,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => {
+        const o = params.row;
+        if (o.status !== 'Ordered') return null;
+        return (
+          <Button
+            size="small"
+            variant="contained"
+            disabled={busyOrders.has(o.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              openPaymentDialog(o);
+            }}
+          >
+            จ่ายแล้ว
+          </Button>
+        );
+      },
+    },
+  ], [busyOrders, itemFilter, openPaymentDialog, openTrackingDialog]);
+
+  const renderDetailPanel = (order: PurchaseOrderResponse) => (
+    <Box sx={{ pl: 4, pr: 2, py: 1 }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '12px' }}>
+        <Table size="small" aria-label={`รายการสินค้า Order ${order.platformOrderNo}`}>
+          <TableHead>
+            <TableRow>
+              <TableCell>สินค้า</TableCell>
+              <TableCell>รุ่น</TableCell>
+              <TableCell align="right">จำนวน</TableCell>
+              <TableCell align="right">ราคา/ชิ้น</TableCell>
+              <TableCell align="right">รวม</TableCell>
+              <TableCell>วันที่รับของ</TableCell>
+              <TableCell>สถานะสินค้า</TableCell>
+              <TableCell>รายละเอียด</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filterOrderItems(order, itemFilter).map((item) => (
+              <TableRow key={item.id} hover>
+                <TableCell sx={{ fontWeight: 600 }}>{item.productName}</TableCell>
+                <TableCell>{item.model || '—'}</TableCell>
+                <TableCell align="right">{item.qty}</TableCell>
+                <TableCell align="right">{item.unitPrice ? thb.format(item.unitPrice) : '—'}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>
+                  {item.qty && item.unitPrice ? thb.format(item.qty * item.unitPrice) : '—'}
+                </TableCell>
+                <TableCell>{receiptDateLabel(item.arrivedAt)}</TableCell>
+                <TableCell><DataGridStatusChip status={item.status} /></TableCell>
+                <TableCell sx={{ minWidth: 160, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  {item.description || '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
   const total = formItems.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
 
   return (
@@ -367,7 +543,7 @@ export function OrdersPage() {
       {exportError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>{exportError}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดออเดอร์" sx={{ mb: 2 }} />}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5, mb: 2, alignItems: 'start' }}>
+      <Box sx={{ display: { xs: 'grid', lg: 'none' }, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, mb: 2, alignItems: 'start' }}>
         <ResponsiveSelectField
           label="สถานะ"
           value={statusFilter}
@@ -406,7 +582,7 @@ export function OrdersPage() {
           value={itemFilter}
           onChange={(event) => setItemFilter(event.target.value)}
         />
-        <Box sx={{ display: { xs: 'grid', lg: 'none' }, gridColumn: { xs: 'auto', sm: '1 / -1' }, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gridColumn: { xs: 'auto', sm: '1 / -1' }, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
           <ResponsiveSelectField
             label="เรียงตาม"
             value={sortField}
@@ -442,160 +618,84 @@ export function OrdersPage() {
         </Box>
       </Box>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }} aria-live="polite">
-        แสดง {filteredOrders.length} Order · {exportRowCount} รายการสินค้า
-      </Typography>
-
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-        <Table
-          size="small"
-          sx={{
-            minWidth: 1300,
-            tableLayout: 'fixed',
-            '& .MuiTableBody-root > .MuiTableRow-root > .MuiTableCell-root': { verticalAlign: 'top' },
-          }}
-        >
-          <colgroup>
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '14%' }} />
-            <col style={{ width: '14%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '12%' }} />
-          </colgroup>
-          <TableHead>
-            <TableRow>
-              <TableCell sortDirection={sortField === 'platform' ? sortDirection : false}>
-                {sortLabel('platform', 'แพลตฟอร์ม')}
-              </TableCell>
-              <TableCell sortDirection={sortField === 'orderNo' ? sortDirection : false}>
-                {sortLabel('orderNo', 'เลข Order')}
-              </TableCell>
-              <TableCell sortDirection={sortField === 'item' ? sortDirection : false}>
-                {sortLabel('item', 'สินค้า / Item')}
-              </TableCell>
-              <TableCell sortDirection={sortField === 'orderedBy' ? sortDirection : false}>
-                {sortLabel('orderedBy', 'ผู้สั่ง')}
-              </TableCell>
-              <TableCell sortDirection={sortField === 'paymentPlan' ? sortDirection : false}>
-                {sortLabel('paymentPlan', 'แผนการจ่าย')}
-              </TableCell>
-              <TableCell align="right" sortDirection={sortField === 'price' ? sortDirection : false}>
-                {sortLabel('price', 'ยอดสินค้า / จ่ายจริง')}
-              </TableCell>
-              <TableCell sortDirection={sortField === 'status' ? sortDirection : false}>
-                {sortLabel('status', 'สถานะ')}
-              </TableCell>
-              <TableCell sortDirection={sortField === 'date' ? sortDirection : false}>
-                {sortLabel('date', 'วันที่สั่ง')}
-              </TableCell>
-              <TableCell align="right">จัดการ</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredOrders.map((o) => {
-              const visibleItems = filterOrderItems(o, itemFilter);
-              return (
-                <Fragment key={o.id}>
-              <TableRow hover>
-                <TableCell>{o.platformCode}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.platformOrderNo}</Typography>
-
-                  {(o.packageName || o.shopName) && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 240, overflowWrap: "anywhere" }}>
-                      {o.packageName && <>หน้ากล่อง {o.packageName}</>}
-                      {o.packageName && o.shopName && " · "}
-                      {o.shopName && <>ร้าน {o.shopName}</>}
-                    </Typography>
-                  )}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
-                      Tracking {o.trackingNo || 'ยังไม่ระบุ'}{o.courier ? ` · ${o.courier}` : ''}
-                    </Typography>
-                    <Button size="small" onClick={() => openTrackingDialog(o)} aria-label={`แก้ไข Tracking ของ Order ${o.platformOrderNo}`} sx={{ minWidth: 44, minHeight: 32, px: 0.5, flexShrink: 0 }}>
-                      แก้ไข
-                    </Button>
-                  </Box>
+      {/* Desktop View: MUI X Data Grid with In-house Master-Detail */}
+      <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 3 }}>
+        <AppDataGrid
+          rows={filteredOrders}
+          columns={columns}
+          loading={loading}
+          getRowId={(row) => row.id}
+          renderDetailPanel={renderDetailPanel}
+          toolbar={
+            <AppDataGridToolbar
+              statusOptions={[
+                { value: '', label: 'ทุกสถานะ' },
+                { value: 'Ordered', label: 'สั่งแล้ว' },
+                { value: 'PaidByStaff', label: 'จ่ายแล้ว' },
+                { value: 'Reimbursed', label: 'เบิกแล้ว' },
+              ]}
+              selectedStatus={statusFilter}
+              onStatusChange={(v) => setStatusFilter(v)}
+              searchValue={search}
+              onSearchChange={(v) => setSearch(v)}
+              searchPlaceholder="ค้นหาเลขออเดอร์..."
+              actions={
+                <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
+                    variant="outlined"
                     size="small"
-                    aria-expanded={expandedOrders.has(o.id)}
-                    aria-controls={`order-items-${o.id}`}
-                    onClick={() => toggleOrderDetails(o.id)}
-                    startIcon={expandedOrders.has(o.id) ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                    sx={{ minHeight: 32, px: 0.5 }}
+                    startIcon={<FileDownloadOutlinedIcon />}
+                    onClick={() => void handleExportExcel()}
+                    disabled={loading || exporting || exportRowCount === 0 || invalidDateRange}
+                    sx={{ minHeight: 38, borderRadius: '8px' }}
                   >
-                    {expandedOrders.has(o.id) ? 'ซ่อนรายการ' : `รายการสินค้า (${o.items.length})`}
+                    {exporting ? 'กำลังเตรียม…' : `Export Excel (${exportRowCount})`}
                   </Button>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
-                    {visibleItems[0]?.productName ?? '—'}
-                  </Typography>
-                  {visibleItems.length > 1 && (
-                    <Typography variant="caption" color="text.secondary">
-                      อีก {visibleItems.length - 1} รายการ
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell>{o.orderedByUsername}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {(o.plannedPaymentSource ?? o.paymentSource) === 'CompanyDirect' ? 'เจ้าของ/บริษัทจ่ายตรง' : 'พนักงานสำรองจ่าย'}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {o.plannedPaymentPayerUsername ?? o.paymentPayerUsername ?? o.orderedByUsername}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">{thb.format(o.actualPaidAmount ?? o.totalAmount)}</TableCell>
-                <TableCell><StatusBadge status={o.status} label={purchaseOrderStatusLabel[o.status] ?? o.status} /></TableCell>
-                <TableCell>{new Date(o.orderedAt).toLocaleDateString('th-TH')}</TableCell>
-                <TableCell align="right">
-                  {o.status === 'Ordered' && (
-                    <Button size="small" disabled={busyOrders.has(o.id)} onClick={() => openPaymentDialog(o)}>บันทึกการจ่าย</Button>
-                  )}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell colSpan={9} sx={{ p: 0, borderBottom: expandedOrders.has(o.id) ? undefined : 0 }}>
-                  <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-${o.id}`}>
-                    <TableContainer component={Paper} variant="outlined" sx={{ m: 1, width: 'calc(100% - 16px)', overflowX: 'auto' }}>
-                      <Table size="small" sx={{ minWidth: 680 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>สินค้า</TableCell>
-                            <TableCell>รุ่น</TableCell>
-                            <TableCell>วันที่รับของ</TableCell>
-                            <TableCell>รายละเอียด</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {filterOrderItems(o, itemFilter).map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell>{item.productName}</TableCell>
-                              <TableCell>{item.model || '—'}</TableCell>
-                              <TableCell>{receiptDateLabel(item.arrivedAt)}</TableCell>
-                              <TableCell sx={{ minWidth: 180, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{item.description || '—'}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Collapse>
-                </TableCell>
-              </TableRow>
-                </Fragment>
-              );
-            })}
-            {!loading && filteredOrders.length === 0 && (
-              <TableRow><TableCell colSpan={9} align="center">ไม่มีออเดอร์</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={openDialog}
+                    sx={{ minHeight: 38, borderRadius: '8px' }}
+                  >
+                    สั่งของใหม่
+                  </Button>
+                </Box>
+              }
+            >
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="สั่งตั้งแต่"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 140 }}
+                />
+                <TextField
+                  size="small"
+                  type="date"
+                  label="ถึง"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 140 }}
+                />
+                <TextField
+                  size="small"
+                  placeholder="กรองสินค้า..."
+                  value={itemFilter}
+                  onChange={(e) => setItemFilter(e.target.value)}
+                  sx={{ width: 160 }}
+                />
+              </Box>
+            </AppDataGridToolbar>
+          }
+          emptyMessage="ไม่มีออเดอร์"
+          rowHeight={72}
+        />
+      </Box>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
         {filteredOrders.map((o) => (
