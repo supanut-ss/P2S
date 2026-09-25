@@ -632,9 +632,9 @@ export function AdminPage() {
             loading={loading}
             getRowId={(row) => row.id}
             initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
+              pagination: { paginationModel: { pageSize: 50 } },
             }}
-            pageSizeOptions={[10, 25, 50]}
+            pageSizeOptions={[25, 50, 100]}
             autoHeight
             toolbar={
               <AppDataGridToolbar
@@ -710,9 +710,9 @@ export function AdminPage() {
             loading={loading}
             getRowId={(row) => row.id}
             initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
+              pagination: { paginationModel: { pageSize: 50 } },
             }}
-            pageSizeOptions={[10, 25, 50]}
+            pageSizeOptions={[25, 50, 100]}
             autoHeight
             toolbar={
               <AppDataGridToolbar
@@ -780,9 +780,9 @@ export function AdminPage() {
             loading={loading}
             getRowId={(row) => row.id}
             initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
+              pagination: { paginationModel: { pageSize: 50 } },
             }}
-            pageSizeOptions={[10, 25, 50]}
+            pageSizeOptions={[25, 50, 100]}
             autoHeight
             toolbar={
               <AppDataGridToolbar
@@ -857,9 +857,9 @@ export function AdminPage() {
             loading={loading}
             getRowId={(row) => row.id}
             initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
+              pagination: { paginationModel: { pageSize: 50 } },
             }}
-            pageSizeOptions={[10, 25, 50]}
+            pageSizeOptions={[25, 50, 100]}
             autoHeight
             toolbar={
               <AppDataGridToolbar

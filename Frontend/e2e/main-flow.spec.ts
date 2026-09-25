@@ -28,16 +28,16 @@ test.beforeEach(async ({ page }) => {
 test('1. admin creates a product in Master data', async ({ page }) => {
   await page.goto('/admin');
   await page.getByLabel('ชื่อสินค้า').fill(productName);
-  await page.getByLabel('SKU').fill(skuCode);
+  await page.getByRole('textbox', { name: 'SKU' }).fill(skuCode);
   await page.getByRole('button', { name: 'เพิ่ม' }).click();
-  await expect(page.getByRole('cell', { name: skuCode })).toBeVisible();
+  await expect(page.locator('[role="cell"], [role="gridcell"]', { hasText: skuCode })).toBeVisible();
 });
 
 test('2. staff creates an order for that product and marks it paid', async ({ page }) => {
   await page.goto('/orders');
-  await page.getByRole('button', { name: 'สั่งของใหม่' }).click();
+  await page.getByRole('button', { name: 'สั่งของใหม่' }).first().click();
 
-  await selectMuiOption(page, 'Platform', /Shopee/);
+  await selectMuiOption(page, 'แพลตฟอร์ม', /Shopee|SP/);
   await page.getByLabel('เลขออเดอร์ (จากแอพ)').fill(orderNo);
   await selectMuiOption(page, 'สินค้า', productName);
   await page.getByLabel('จำนวน').fill('5');
@@ -72,14 +72,19 @@ test('4. withdraws stock from the newly received lot', async ({ page }) => {
   // is visible at all is enough here; the real assertion is the post-withdrawal count below.
   await expect(inventoryRow).toBeVisible();
 
-  await inventoryRow.getByRole('button', { name: 'เบิกออก' }).click();
+  // Expand master row to reveal lot actions
+  const expandBtn = inventoryRow.getByRole('button', { name: 'ขยายรายละเอียด' });
+  if (await expandBtn.isVisible()) {
+    await expandBtn.click();
+  }
+  await page.getByRole('button', { name: 'เบิกออก' }).first().click();
   await page.getByLabel('จำนวน').fill('2');
   await selectMuiOption(page, 'เหตุผล', 'ขาย');
   await page.getByRole('button', { name: 'เบิกออก' }).click();
 
   await expect(page.getByRole('dialog')).not.toBeVisible();
   const updatedRow = page.getByRole('row', { name: new RegExp(skuCode) });
-  await expect(updatedRow.getByRole('cell', { name: '3', exact: true })).toBeVisible();
+  await expect(updatedRow.locator('[role="cell"], [role="gridcell"]', { hasText: '3' })).toBeVisible();
 });
 
 test('5. requests, approves, and pays the reimbursement; order flips to Reimbursed', async ({ page }) => {

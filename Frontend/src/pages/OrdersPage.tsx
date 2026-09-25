@@ -347,7 +347,7 @@ export function OrdersPage() {
     {
       field: 'platformCode',
       headerName: 'แพลตฟอร์ม',
-      width: 110,
+      width: 90,
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontWeight: 700 }}>
           {params.value}
@@ -357,8 +357,8 @@ export function OrdersPage() {
     {
       field: 'platformOrderNo',
       headerName: 'เลข Order',
-      flex: 1.2,
-      minWidth: 220,
+      flex: 1.1,
+      minWidth: 170,
       renderCell: (params) => {
         const o = params.row;
         return (
@@ -395,8 +395,8 @@ export function OrdersPage() {
     {
       field: 'items',
       headerName: 'สินค้า / Item',
-      flex: 1.4,
-      minWidth: 220,
+      flex: 1.2,
+      minWidth: 170,
       renderCell: (params) => {
         const visibleItems = filterOrderItems(params.row, itemFilter);
         return (
@@ -416,12 +416,12 @@ export function OrdersPage() {
     {
       field: 'orderedByUsername',
       headerName: 'ผู้สั่ง',
-      width: 120,
+      width: 90,
     },
     {
       field: 'paymentPlan',
       headerName: 'แผนการจ่าย',
-      width: 160,
+      width: 120,
       renderCell: (params) => {
         const o = params.row;
         const isDirect = (o.plannedPaymentSource ?? o.paymentSource) === 'CompanyDirect';
@@ -441,7 +441,7 @@ export function OrdersPage() {
       field: 'totalAmount',
       headerName: 'ยอดสินค้า / จ่ายจริง',
       type: 'number',
-      width: 160,
+      width: 140,
       headerAlign: 'right',
       align: 'right',
       renderCell: (params) => (
@@ -453,19 +453,19 @@ export function OrdersPage() {
     {
       field: 'status',
       headerName: 'สถานะ',
-      width: 150,
+      width: 130,
       renderCell: (params) => <DataGridStatusChip status={params.value} />,
     },
     {
       field: 'orderedAt',
       headerName: 'วันที่สั่ง',
-      width: 120,
+      width: 100,
       valueFormatter: (value) => new Date(value).toLocaleDateString('th-TH'),
     },
     {
       field: 'actions',
       headerName: 'จัดการ',
-      width: 130,
+      width: 110,
       sortable: false,
       filterable: false,
       headerAlign: 'right',
@@ -693,7 +693,7 @@ export function OrdersPage() {
             </AppDataGridToolbar>
           }
           emptyMessage="ไม่มีออเดอร์"
-          rowHeight={72}
+          rowHeight={80}
         />
       </Box>
 

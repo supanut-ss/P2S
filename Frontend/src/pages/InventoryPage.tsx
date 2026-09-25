@@ -359,7 +359,7 @@ export function InventoryPage() {
             />
           }
           emptyMessage="ไม่มีของในคลัง"
-          rowHeight={68}
+          rowHeight={76}
         />
       </Box>
 

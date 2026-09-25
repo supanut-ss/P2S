@@ -70,6 +70,14 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
 
     const totalColumns = columns.length + 1;
 
+    const wrappedColumns = columns.map((col) => ({
+      ...col,
+      renderCell: (params: any) => {
+        if (params.row?.__isDetailRow) return null;
+        return col.renderCell ? col.renderCell(params) : params.value;
+      },
+    }));
+
     const expandCol: GridColDef<any> = {
       field: '__detail_toggle__',
       headerName: '',
@@ -106,7 +114,7 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
       },
     };
 
-    return [expandCol, ...columns];
+    return [expandCol, ...wrappedColumns];
   }, [columns, renderDetailPanel, expandedIds, resolveRowId, toggleRow]);
 
   // Insert synthetic detail rows when master row is expanded
@@ -197,6 +205,9 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
             },
             '& .MuiDataGrid-cell': {
               padding: '0 16px',
+              display: 'flex',
+              alignItems: 'center',
+              overflow: 'visible',
               '&:focus, &:focus-within': {
                 outline: 'none',
               },
