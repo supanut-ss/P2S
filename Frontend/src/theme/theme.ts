@@ -57,7 +57,16 @@ export function createAppTheme(mode: PaletteMode) {
             paddingBottom: 12,
             paddingLeft: 16,
             paddingRight: 16,
-            '&.MuiButton-containedPrimary': {
+          },
+        },
+        // `variants` (matched by ownerState), not nested "&.MuiButton-containedPrimary"
+        // selectors — MUI's current Button composes variant+color via separate
+        // classes/CSS vars, so that old combined class name never appears in the DOM
+        // and a nested selector targeting it silently does nothing.
+        variants: [
+          {
+            props: { variant: 'contained', color: 'primary' },
+            style: {
               backgroundColor: tokens.color.primary,
               color: tokens.color.primaryForeground,
               '&:hover': {
@@ -65,7 +74,10 @@ export function createAppTheme(mode: PaletteMode) {
                 color: tokens.color.primaryForeground,
               },
             },
-            '&.MuiButton-containedWarning': {
+          },
+          {
+            props: { variant: 'contained', color: 'warning' },
+            style: {
               backgroundColor: tokens.color.warning,
               color: tokens.color.warningForeground,
               '&:hover': {
@@ -73,7 +85,10 @@ export function createAppTheme(mode: PaletteMode) {
                 color: tokens.color.warningForeground,
               },
             },
-            '&.MuiButton-outlinedPrimary': {
+          },
+          {
+            props: { variant: 'outlined', color: 'primary' },
+            style: {
               borderColor: color.primaryText,
               color: color.primaryText,
               '&:hover': {
@@ -81,7 +96,10 @@ export function createAppTheme(mode: PaletteMode) {
                 color: color.primaryTextHover,
               },
             },
-            '&.MuiButton-outlinedWarning': {
+          },
+          {
+            props: { variant: 'outlined', color: 'warning' },
+            style: {
               borderColor: color.warningText,
               color: color.warningText,
               '&:hover': {
@@ -90,7 +108,7 @@ export function createAppTheme(mode: PaletteMode) {
               },
             },
           },
-        },
+        ],
       },
       MuiOutlinedInput: {
         styleOverrides: {
@@ -117,12 +135,17 @@ export function createAppTheme(mode: PaletteMode) {
           root: {
             borderRadius: tokens.radius.full,
             fontWeight: 600,
-            '&.MuiChip-outlinedPrimary': {
+          },
+        },
+        variants: [
+          {
+            props: { variant: 'outlined', color: 'primary' },
+            style: {
               borderColor: color.primaryText,
               color: color.primaryText,
             },
           },
-        },
+        ],
       },
       MuiTableContainer: {
         styleOverrides: {
