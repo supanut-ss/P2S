@@ -25,8 +25,6 @@ public record OrderItemResponse(
     decimal UnitPrice,
     string Status,
     int ReturnedQty,
-    string? TrackingNo,
-    string? Courier,
     DateTime? ArrivedAt,
     DateTime? CancelledAt
 );
@@ -37,6 +35,8 @@ public record PurchaseOrderResponse(
     string PlatformOrderNo,
     string? PackageName,
     string? ShopName,
+    string? TrackingNo,
+    string? Courier,
     decimal TotalAmount,
     string Status,
     DateTime OrderedAt,
@@ -56,7 +56,7 @@ public record PurchaseOrderResponse(
     List<OrderItemResponse> Items
 );
 
-public record SetTrackingRequest(string TrackingNo, string? Courier);
+public record SetTrackingRequest(string? TrackingNo, string? Courier);
 
 public sealed class MarkOrderPaidRequest
 {

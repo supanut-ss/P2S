@@ -139,7 +139,11 @@ public class OrdersController : ControllerBase
         }
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(o => o.PlatformOrderNo.Contains(search));
+            query = query.Where(o => o.PlatformOrderNo.Contains(search) ||
+                (o.TrackingNo != null && o.TrackingNo.Contains(search)) ||
+                (o.Courier != null && o.Courier.Contains(search)) ||
+                o.OrderItems.Any(i => i.TrackingNo != null && i.TrackingNo.Contains(search)) ||
+                o.OrderItems.Any(i => i.Courier != null && i.Courier.Contains(search)));
         }
 
         // Used by the reimbursement-request picker: a PaidByStaff order stays PaidByStaff
@@ -322,31 +326,27 @@ public class OrdersController : ControllerBase
         return File(order.PaymentEvidence, order.PaymentEvidenceContentType, order.PaymentEvidenceFileName, enableRangeProcessing: true);
     }
 
-    /// <summary>Stores shipping metadata for an order line. Order-number goods receiving does not depend on tracking.</summary>
-    [HttpPost("items/{orderItemId:int}/tracking")]
+    /// <summary>Stores shipping metadata on an order header. Order-number goods receiving does not depend on tracking.</summary>
+    [HttpPost("{orderId:int}/tracking")]
     [Authorize(Roles = "staff,admin")]
-    public async Task<IActionResult> SetTracking(int orderItemId, SetTrackingRequest request, CancellationToken ct)
+    public async Task<IActionResult> SetTracking(int orderId, SetTrackingRequest request, CancellationToken ct)
     {
-        var item = await _db.OrderItems
-            .Include(i => i.PurchaseOrder)
-            .FirstOrDefaultAsync(i => i.Id == orderItemId, ct);
-        if (item is null) return NotFound();
-        if (!User.IsInRole("admin") && item.PurchaseOrder.OrderedByUserId != this.CurrentUserId()) return NotFound();
-        if (item.Status != OrderItemStatus.Pending)
-        {
-            return BadRequest(new { message = $"รายการนี้อยู่ในสถานะ {item.Status} แล้ว ไม่ใช่ Pending" });
-        }
+        var order = await _db.PurchaseOrders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+        if (order is null) return NotFound();
+        if (!User.IsInRole("admin") && order.OrderedByUserId != this.CurrentUserId()) return NotFound();
+        if ((request.TrackingNo?.Length ?? 0) > 255)
+            return BadRequest(new { message = "เลข Tracking ต้องไม่เกิน 255 ตัวอักษร" });
 
-        item.TrackingNo = request.TrackingNo;
-        item.Courier = request.Courier;
-        item.RowVersion += 1;
+        order.TrackingNo = NormalizeOptionalText(request.TrackingNo);
+        order.Courier = NormalizeOptionalText(request.Courier);
+        order.RowVersion += 1;
         try
         {
             await _db.SaveChangesAsync(ct);
         }
         catch (DbUpdateConcurrencyException)
         {
-            return Conflict(new { message = "รายการนี้เปลี่ยนพร้อมกัน กรุณาโหลดใหม่" });
+            return Conflict(new { message = "Order นี้เปลี่ยนพร้อมกัน กรุณาโหลดใหม่" });
         }
         return NoContent();
     }
@@ -378,6 +378,8 @@ public class OrdersController : ControllerBase
         order.PlatformOrderNo,
         OrderHeaderMetadataResolver.Resolve(order.PackageName, order.OrderItems.Select(i => i.PackageName)),
         OrderHeaderMetadataResolver.Resolve(order.ShopName, order.OrderItems.Select(i => i.ShopName)),
+        OrderHeaderMetadataResolver.Resolve(order.TrackingNo, order.OrderItems.Select(i => i.TrackingNo)),
+        OrderHeaderMetadataResolver.Resolve(order.Courier, order.OrderItems.Select(i => i.Courier)),
         order.TotalAmount,
         order.Status.ToString(),
         order.OrderedAt,
@@ -397,7 +399,7 @@ public class OrdersController : ControllerBase
         order.OrderItems.Select(i => new OrderItemResponse(
             i.Id, i.ProductId, i.Product.Name, i.Model, i.Description,
             i.Qty, i.UnitPrice, i.Status.ToString(), i.ReturnedQty,
-            i.TrackingNo, i.Courier, i.ArrivedAt, i.CancelledAt)).ToList()
+            i.ArrivedAt, i.CancelledAt)).ToList()
     );
 
     private static string? NormalizeOptionalText(string? value) =>

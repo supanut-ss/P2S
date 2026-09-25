@@ -19,6 +19,8 @@ public record GoodsReceiptOrderResponse(
     string PlatformOrderNo,
     string? PackageName,
     string? ShopName,
+    string? TrackingNo,
+    string? Courier,
     DateTime OrderedAt,
     List<GoodsReceiptOrderLineResponse> Items,
     List<GoodsReceiptEventResponse> ReceiptHistory
@@ -29,7 +31,6 @@ public record GoodsReceiptOrderLineResponse(
     string ProductName,
     string SkuCode,
     string? Model,
-    string? TrackingNo,
     DateTime? ArrivedAt,
     string? Description,
     int Qty,

@@ -48,8 +48,6 @@ export interface OrderItemResponse {
   unitPrice: number;
   status: OrderItemStatus;
   returnedQty: number;
-  trackingNo: string | null;
-  courier: string | null;
   arrivedAt: string | null;
   cancelledAt: string | null;
 }
@@ -60,6 +58,8 @@ export interface PurchaseOrderResponse {
   platformOrderNo: string;
   packageName: string | null;
   shopName: string | null;
+  trackingNo: string | null;
+  courier: string | null;
   totalAmount: number;
   status: PurchaseOrderStatus;
   orderedAt: string;
@@ -98,6 +98,8 @@ export interface GoodsReceiptOrderResponse {
   platformOrderNo: string;
   packageName: string | null;
   shopName: string | null;
+  trackingNo: string | null;
+  courier: string | null;
   orderedAt: string;
   items: GoodsReceiptOrderLineResponse[];
   receiptHistory: GoodsReceiptEventResponse[];
@@ -108,7 +110,6 @@ export interface GoodsReceiptOrderLineResponse {
   productName: string;
   skuCode: string;
   model: string | null;
-  trackingNo: string | null;
   arrivedAt: string | null;
   description: string | null;
   qty: number;

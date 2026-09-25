@@ -13,6 +13,8 @@ public class PurchaseOrder
     public string PlatformOrderNo { get; set; } = null!;
     public string? PackageName { get; set; }
     public string? ShopName { get; set; }
+    public string? TrackingNo { get; set; }
+    public string? Courier { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal? ActualPaidAmount { get; set; }
     public PaymentSource? PlannedPaymentSource { get; set; }

@@ -15,7 +15,7 @@ import { BarcodeScannerDialog } from '../components/BarcodeScannerDialog';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { purchaseOrderStatusLabel } from '../theme/tokens';
-import { createOrder, listOrders, markPaid, type CreateOrderItemInput } from '../api/ordersApi';
+import { createOrder, listOrders, markPaid, setTracking, type CreateOrderItemInput } from '../api/ordersApi';
 import { getPaymentPayers, getPlatforms, getProducts } from '../api/masterDataApi';
 import type { PaymentPayerResponse, PaymentSource, PlatformResponse, ProductResponse, PurchaseOrderResponse } from '../types/models';
 import { useAuth } from '../auth/AuthContext';
@@ -36,7 +36,7 @@ function localDayBoundary(value: string, dayOffset = 0) {
 function filterOrderItems(order: PurchaseOrderResponse, query: string) {
   const normalizedQuery = query.trim().toLocaleLowerCase('th-TH');
   if (!normalizedQuery) return order.items;
-  const orderMetadata = [order.packageName, order.shopName]
+  const orderMetadata = [order.packageName, order.shopName, order.trackingNo, order.courier]
     .filter(Boolean)
     .join(' ')
     .toLocaleLowerCase('th-TH');
@@ -46,7 +46,6 @@ function filterOrderItems(order: PurchaseOrderResponse, query: string) {
     item.productName,
     item.model,
     item.description,
-    item.trackingNo,
   ].filter(Boolean).join(' ').toLocaleLowerCase('th-TH').includes(normalizedQuery));
 }
 
@@ -88,6 +87,11 @@ export function OrdersPage() {
   const [paymentEvidence, setPaymentEvidence] = useState<File | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [trackingTarget, setTrackingTarget] = useState<PurchaseOrderResponse | null>(null);
+  const [trackingNo, setTrackingNo] = useState('');
+  const [trackingCourier, setTrackingCourier] = useState('');
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+  const [trackingSaving, setTrackingSaving] = useState(false);
   const busyOrdersRef = useRef(new Set<number>());
   const [busyOrders, setBusyOrders] = useState<Set<number>>(new Set());
 
@@ -222,14 +226,15 @@ export function OrdersPage() {
         'ราคาต่อชิ้น': item.unitPrice,
         'รวมรายการ': item.qty * item.unitPrice,
         'ยอด Order': order.actualPaidAmount ?? order.totalAmount,
-        'TRACKING': item.trackingNo ?? '',
+        'TRACKING': order.trackingNo ?? '',
+        'COURIER': order.courier ?? '',
         'วันที่รับของ': item.arrivedAt ? new Date(item.arrivedAt) : null,
       })));
       const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true, dateNF: 'dd/mm/yyyy hh:mm' });
       worksheet['!cols'] = [
         { wch: 20 }, { wch: 14 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 28 },
         { wch: 24 }, { wch: 22 }, { wch: 24 }, { wch: 36 }, { wch: 10 }, { wch: 16 },
-        { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
+        { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 20 }, { wch: 16 },
       ];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
@@ -313,6 +318,34 @@ export function OrdersPage() {
       busyOrdersRef.current.delete(id);
       setBusyOrders(new Set(busyOrdersRef.current));
       setPaymentSubmitting(false);
+    }
+  };
+
+  const openTrackingDialog = (order: PurchaseOrderResponse) => {
+    setTrackingTarget(order);
+    setTrackingNo(order.trackingNo ?? '');
+    setTrackingCourier(order.courier ?? '');
+    setTrackingError(null);
+  };
+
+  const handleSetTracking = async () => {
+    if (!trackingTarget || trackingSaving) return;
+    const target = trackingTarget;
+    const nextTrackingNo = trackingNo.trim();
+    const nextCourier = trackingCourier.trim();
+    setTrackingSaving(true);
+    setTrackingError(null);
+    try {
+      await setTracking(target.id, nextTrackingNo || null, nextCourier || null);
+      setOrders((current) => current.map((order) => order.id === target.id
+        ? { ...order, trackingNo: nextTrackingNo || null, courier: nextCourier || null }
+        : order));
+      setTrackingTarget(null);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setTrackingError(msg ?? 'บันทึกข้อมูล Tracking ไม่สำเร็จ');
+    } finally {
+      setTrackingSaving(false);
     }
   };
 
@@ -450,6 +483,14 @@ export function OrdersPage() {
                       {o.shopName && <>ร้าน {o.shopName}</>}
                     </Typography>
                   )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 210, overflowWrap: 'anywhere' }}>
+                      Tracking {o.trackingNo || 'ยังไม่ระบุ'}{o.courier ? ` · ${o.courier}` : ''}
+                    </Typography>
+                    <Button size="small" onClick={() => openTrackingDialog(o)} aria-label={`แก้ไข Tracking ของ Order ${o.platformOrderNo}`} sx={{ minWidth: 44, minHeight: 40, px: 0.5 }}>
+                      แก้ไข
+                    </Button>
+                  </Box>
                   <Button
                     size="small"
                     aria-expanded={expandedOrders.has(o.id)}
@@ -483,12 +524,11 @@ export function OrdersPage() {
                 <TableCell colSpan={8} sx={{ p: 0, borderBottom: expandedOrders.has(o.id) ? undefined : 0 }}>
                   <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-${o.id}`}>
                     <TableContainer component={Paper} variant="outlined" sx={{ m: 1, width: 'calc(100% - 16px)', overflowX: 'auto' }}>
-                      <Table size="small" sx={{ minWidth: 760 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
+                      <Table size="small" sx={{ minWidth: 680 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
                         <TableHead>
                           <TableRow>
                             <TableCell>สินค้า</TableCell>
                             <TableCell>รุ่น</TableCell>
-                            <TableCell>TRACKING</TableCell>
                             <TableCell>วันที่รับของ</TableCell>
                             <TableCell>รายละเอียด</TableCell>
                           </TableRow>
@@ -498,10 +538,6 @@ export function OrdersPage() {
                             <TableRow key={item.id}>
                               <TableCell>{item.productName}</TableCell>
                               <TableCell>{item.model || '—'}</TableCell>
-                              <TableCell>
-                                {item.trackingNo || 'รอข้อมูลจากระบบ'}
-                                {item.courier ? ` · ${item.courier}` : ''}
-                              </TableCell>
                               <TableCell>{receiptDateLabel(item.arrivedAt)}</TableCell>
                               <TableCell sx={{ minWidth: 180, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{item.description || '—'}</TableCell>
                             </TableRow>
@@ -551,6 +587,11 @@ export function OrdersPage() {
               </Typography>
               <Typography variant="body2" color="text.secondary">วันที่สั่ง</Typography>
               <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
+              <Typography variant="body2" color="text.secondary">Tracking</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ overflowWrap: 'anywhere', minWidth: 0 }}>{o.trackingNo || 'ยังไม่ระบุ'}{o.courier ? ` · ${o.courier}` : ''}</Typography>
+                <Button size="small" onClick={() => openTrackingDialog(o)} aria-label={`แก้ไข Tracking ของ Order ${o.platformOrderNo}`} sx={{ minWidth: 44, minHeight: 44, px: 0.5, flexShrink: 0 }}>แก้ไข</Button>
+              </Box>
               {(o.packageName || o.shopName) && (<>
                 <Typography variant="body2" color="text.secondary">ชื่อหน้ากล่อง</Typography><Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>{o.packageName || "—"}</Typography>
                 <Typography variant="body2" color="text.secondary">ร้าน</Typography><Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>{o.shopName || "—"}</Typography>
@@ -563,7 +604,6 @@ export function OrdersPage() {
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, auto) minmax(0, 1fr)', gap: 0.75, mt: 1 }}>
                       <Typography variant="body2" color="text.secondary">รุ่น</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.model || '—'}</Typography>
-                      <Typography variant="body2" color="text.secondary">TRACKING</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.trackingNo || 'รอข้อมูลจากระบบ'}{item.courier ? ` · ${item.courier}` : ''}</Typography>
                       <Typography variant="body2" color="text.secondary">วันที่รับของ</Typography><Typography variant="body2">{receiptDateLabel(item.arrivedAt)}</Typography>
                       <Typography variant="body2" color="text.secondary">รายละเอียด</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.description || '—'}</Typography>
                     </Box>
@@ -727,6 +767,31 @@ export function OrdersPage() {
           <Button onClick={() => setPaymentTarget(null)} disabled={paymentSubmitting}>ยกเลิก</Button>
           <Button variant="contained" onClick={handleMarkPaid} disabled={paymentSubmitting || paymentPayerUserId === ''}>
             {paymentSubmitting ? 'กำลังบันทึก…' : 'บันทึก'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={trackingTarget !== null} onClose={() => !trackingSaving && setTrackingTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Tracking — {trackingTarget?.platformOrderNo}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          {trackingError && <Alert severity="error">{trackingError}</Alert>}
+          <TextField
+            label="เลข Tracking"
+            value={trackingNo}
+            onChange={(event) => setTrackingNo(event.target.value)}
+            slotProps={{ htmlInput: { maxLength: 255 } }}
+            autoFocus
+          />
+          <TextField
+            label="บริษัทขนส่ง"
+            value={trackingCourier}
+            onChange={(event) => setTrackingCourier(event.target.value)}
+          />
+          <Typography variant="caption" color="text.secondary">ข้อมูลนี้ใช้ร่วมกับสินค้าทุกรายการใน Order</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTrackingTarget(null)} disabled={trackingSaving}>ยกเลิก</Button>
+          <Button variant="contained" onClick={handleSetTracking} disabled={trackingSaving}>
+            {trackingSaving ? 'กำลังบันทึก…' : 'บันทึก'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -23,7 +23,7 @@ public class OrderItem
     public string? ShopName { get; set; }
     public string? Description { get; set; }
 
-    /// <summary>Optional legacy shipping reference; order-number goods receiving does not depend on it.</summary>
+    /// <summary>Legacy per-item shipping reference retained for existing orders; new tracking is stored on PurchaseOrder.</summary>
     public string? TrackingNo { get; set; }
     public string? Courier { get; set; }
 

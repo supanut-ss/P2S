@@ -47,6 +47,6 @@ export async function getPaymentEvidence(id: number): Promise<Blob> {
   return data;
 }
 
-export async function setTracking(orderItemId: number, trackingNo: string, courier?: string): Promise<void> {
-  await apiClient.post(`/api/orders/items/${orderItemId}/tracking`, { trackingNo, courier });
+export async function setTracking(orderId: number, trackingNo: string | null, courier?: string | null): Promise<void> {
+  await apiClient.post(`/api/orders/${orderId}/tracking`, { trackingNo, courier });
 }
