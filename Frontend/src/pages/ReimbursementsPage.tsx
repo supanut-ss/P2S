@@ -371,13 +371,13 @@ export function ReimbursementsPage() {
     {
       field: 'platformCode',
       headerName: 'แพลตฟอร์ม',
-      width: 130,
+      width: 110,
     },
     {
       field: 'platformOrderNo',
       headerName: 'เลขออเดอร์ / สินค้า',
       flex: 2,
-      minWidth: 260,
+      minWidth: 240,
       renderCell: (params) => {
         const o = params.row;
         return (
@@ -398,20 +398,53 @@ export function ReimbursementsPage() {
       },
     },
     {
+      field: 'orderedByUsername',
+      headerName: 'ผู้สั่ง',
+      width: 110,
+    },
+    {
+      field: 'paymentPlan',
+      headerName: 'ผู้จ่าย',
+      width: 130,
+      renderCell: (params) => {
+        const o = params.row;
+        const payer = o.paymentPayerUsername ?? o.plannedPaymentPayerUsername ?? o.orderedByUsername;
+        return (
+          <Box sx={{ py: 0.5 }}>
+            <Typography variant="body2">{payer}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {(o.plannedPaymentSource ?? o.paymentSource) === 'CompanyDirect' ? 'บริษัทจ่ายตรง' : 'สำรองจ่าย'}
+            </Typography>
+          </Box>
+        );
+      },
+    },
+    {
       field: 'orderedAt',
       headerName: 'วันที่สั่ง',
-      width: 110,
+      width: 100,
       valueFormatter: (value: string) => new Date(value).toLocaleDateString('th-TH'),
     },
     {
       field: 'reimbursableAmount',
       headerName: 'ยอดเบิกสุทธิ',
       type: 'number',
-      width: 150,
+      width: 140,
       headerAlign: 'right',
       align: 'right',
-      valueGetter: (_v, row) => row.reimbursableAmount ?? row.actualPaidAmount ?? row.totalAmount,
-      valueFormatter: (value: number) => thb.format(value),
+      renderCell: (params) => {
+        const o = params.row;
+        const reimb = o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount;
+        const paid = o.actualPaidAmount ?? o.totalAmount;
+        return (
+          <Box sx={{ textAlign: 'right', py: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>{thb.format(reimb)}</Typography>
+            {o.actualPaidAmount !== null && o.actualPaidAmount !== o.totalAmount && (
+              <Typography variant="caption" color="text.secondary">จ่ายจริง {thb.format(paid)}</Typography>
+            )}
+          </Box>
+        );
+      },
     },
   ], []);
 

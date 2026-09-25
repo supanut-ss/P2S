@@ -200,6 +200,14 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
                 outline: 'none',
               },
             },
+            // Checkbox column header & cell — reset padding so checkbox is centered
+            '& .MuiDataGrid-columnHeader--checkbox, & .MuiDataGrid-columnHeaderCheckbox': {
+              padding: '0 4px',
+            },
+            '& .MuiDataGrid-cell--checkbox': {
+              padding: '0 4px',
+              justifyContent: 'center',
+            },
             '& .MuiDataGrid-columnHeaderTitle': {
               fontWeight: 600,
             },
