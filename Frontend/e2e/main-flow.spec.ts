@@ -90,12 +90,12 @@ test('5. requests, approves, and pays the reimbursement; order flips to Reimburs
   await page.getByRole('button', { name: 'ส่งคำขอเบิกเงิน' }).click();
 
   await expect(page.getByText('ส่งคำขอเบิกเงินแล้ว')).toBeVisible();
-  const reimbursementRow = page.locator('tr', { hasText: 'รอตรวจสอบ' }).first();
+  const reimbursementRow = page.locator('tr, [role="row"]', { hasText: 'รอตรวจสอบ' }).first();
   await reimbursementRow.getByRole('button', { name: 'อนุมัติ' }).click();
 
-  const approvedRow = page.locator('tr', { hasText: 'อนุมัติแล้ว' }).first();
+  const approvedRow = page.locator('tr, [role="row"]', { hasText: 'อนุมัติแล้ว' }).first();
   await approvedRow.getByRole('button', { name: 'จ่ายเงิน' }).click();
-  await expect(page.locator('tr', { hasText: 'จ่ายแล้ว' }).first()).toBeVisible();
+  await expect(page.locator('tr, [role="row"]', { hasText: 'จ่ายแล้ว' }).first()).toBeVisible();
 
   await page.goto('/orders');
   const orderRow = page.getByRole('row', { name: new RegExp(orderNo) });
