@@ -16,13 +16,19 @@ import {
 } from '../api/masterDataApi';
 import type { PlatformResponse, ProductResponse, UserResponse, WithdrawalReasonResponse } from '../types/models';
 
-function TabPanel({ active, children }: { active: boolean; children: React.ReactNode }) {
-  return active ? <Box sx={{ mt: 2 }}>{children}</Box> : null;
+function TabPanel({
+  active, id, labelledBy, children,
+}: { active: boolean; id: string; labelledBy: string; children: React.ReactNode }) {
+  return (
+    <Box role="tabpanel" id={id} aria-labelledby={labelledBy} tabIndex={0} hidden={!active} sx={{ mt: 2 }}>
+      {children}
+    </Box>
+  );
 }
 
 // ── Generic confirm-delete dialog ─────────────────────────────────────────────
 function ConfirmDeleteDialog({
-  open, title, description, onClose, onConfirm, loading,
+  open, title, description, onClose, onConfirm, loading, error,
 }: {
   open: boolean;
   title: string;
@@ -30,15 +36,21 @@ function ConfirmDeleteDialog({
   onClose: () => void;
   onConfirm: () => void;
   loading: boolean;
+  error: string | null;
 }) {
+  const handleClose = () => {
+    if (!loading) onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <Typography>{description}</Typography>
+        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       </DialogContent>
       <DialogActions sx={{ p: 2, gap: 1 }}>
-        <Button onClick={onClose} disabled={loading}>ยกเลิก</Button>
+        <Button onClick={handleClose} disabled={loading}>ยกเลิก</Button>
         <Button variant="contained" color="error" onClick={onConfirm} disabled={loading}>ลบ</Button>
       </DialogActions>
     </Dialog>
@@ -69,6 +81,7 @@ export function AdminPage() {
 
   const [deletingProduct, setDeletingProduct] = useState<ProductResponse | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // ── Platforms ─────────────────────────────────────────────────────────────
   const [platforms, setPlatforms] = useState<PlatformResponse[]>([]);
@@ -164,14 +177,13 @@ export function AdminPage() {
 
   const handleDeleteProduct = async () => {
     if (!deletingProduct) return;
-    setDeleteSubmitting(true);
+    setDeleteSubmitting(true); setDeleteError(null);
     try {
       await deleteProduct(deletingProduct.id);
       setDeletingProduct(null); loadAll();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'ลบสินค้าไม่สำเร็จ');
-      setDeletingProduct(null);
+      setDeleteError(msg ?? 'ลบสินค้าไม่สำเร็จ');
     } finally { setDeleteSubmitting(false); }
   };
 
@@ -209,14 +221,13 @@ export function AdminPage() {
 
   const handleDeletePlatform = async () => {
     if (!deletingPlatform) return;
-    setDeleteSubmitting(true);
+    setDeleteSubmitting(true); setDeleteError(null);
     try {
       await deletePlatform(deletingPlatform.id);
       setDeletingPlatform(null); loadAll();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'ลบ platform ไม่สำเร็จ');
-      setDeletingPlatform(null);
+      setDeleteError(msg ?? 'ลบ platform ไม่สำเร็จ');
     } finally { setDeleteSubmitting(false); }
   };
 
@@ -250,14 +261,13 @@ export function AdminPage() {
 
   const handleDeleteReason = async () => {
     if (!deletingReason) return;
-    setDeleteSubmitting(true);
+    setDeleteSubmitting(true); setDeleteError(null);
     try {
       await deleteWithdrawalReason(deletingReason.id);
       setDeletingReason(null); loadAll();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'ลบเหตุผลไม่สำเร็จ');
-      setDeletingReason(null);
+      setDeleteError(msg ?? 'ลบเหตุผลไม่สำเร็จ');
     } finally { setDeleteSubmitting(false); }
   };
 
@@ -295,14 +305,13 @@ export function AdminPage() {
 
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
-    setDeleteSubmitting(true);
+    setDeleteSubmitting(true); setDeleteError(null);
     try {
       await deleteUser(deletingUser.id);
       setDeletingUser(null); loadAll();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'ลบผู้ใช้ไม่สำเร็จ');
-      setDeletingUser(null);
+      setDeleteError(msg ?? 'ลบผู้ใช้ไม่สำเร็จ');
     } finally { setDeleteSubmitting(false); }
   };
 
@@ -321,14 +330,14 @@ export function AdminPage() {
       {loading && <LinearProgress aria-label="กำลังโหลดข้อมูลหลัก" sx={{ mb: 2 }} />}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ minHeight: 48, '& .MuiTab-root': { minHeight: 48, px: { xs: 1.5, sm: 2 } } }}>
-        <Tab label="สินค้า" />
-        <Tab label="Platform" />
-        <Tab label="เหตุผลเบิกของ" />
-        <Tab label="ผู้ใช้งาน" />
+        <Tab label="สินค้า" id="admin-tab-0" aria-controls="admin-panel-0" />
+        <Tab label="Platform" id="admin-tab-1" aria-controls="admin-panel-1" />
+        <Tab label="เหตุผลเบิกของ" id="admin-tab-2" aria-controls="admin-panel-2" />
+        <Tab label="ผู้ใช้งาน" id="admin-tab-3" aria-controls="admin-panel-3" />
       </Tabs>
 
       {/* ── Products tab ──────────────────────────────────────────────────── */}
-      <TabPanel active={tab === 0}>
+      <TabPanel active={tab === 0} id="admin-panel-0" labelledBy="admin-tab-0">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'minmax(140px, 1fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 100px auto' }, gap: 1, mb: 2 }}>
           <TextField label="ชื่อสินค้า" size="small" value={newProductName} onChange={(e) => setNewProductName(e.target.value)} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }} />
           <TextField label="SKU" size="small" value={newProductSku} onChange={(e) => setNewProductSku(e.target.value)} />
@@ -402,14 +411,15 @@ export function AdminPage() {
           open={deletingProduct !== null}
           title="ลบสินค้า"
           description={`ต้องการลบ "${deletingProduct?.name}" ใช่หรือไม่?`}
-          onClose={() => setDeletingProduct(null)}
+          onClose={() => { setDeletingProduct(null); setDeleteError(null); }}
           onConfirm={handleDeleteProduct}
           loading={deleteSubmitting}
+          error={deleteError}
         />
       </TabPanel>
 
       {/* ── Platforms tab ─────────────────────────────────────────────────── */}
-      <TabPanel active={tab === 1}>
+      <TabPanel active={tab === 1} id="admin-panel-1" labelledBy="admin-tab-1">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 0.55fr) minmax(0, 1fr)', sm: '120px minmax(180px, 1fr) auto' }, gap: 1, mb: 2 }}>
           <TextField label="Code (เช่น SP)" size="small" value={newPlatformCode} onChange={(e) => setNewPlatformCode(e.target.value)} />
           <TextField label="ชื่อ" size="small" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} />
@@ -471,14 +481,15 @@ export function AdminPage() {
           open={deletingPlatform !== null}
           title="ลบ Platform"
           description={`ต้องการลบ "${deletingPlatform?.name}" ใช่หรือไม่?`}
-          onClose={() => setDeletingPlatform(null)}
+          onClose={() => { setDeletingPlatform(null); setDeleteError(null); }}
           onConfirm={handleDeletePlatform}
           loading={deleteSubmitting}
+          error={deleteError}
         />
       </TabPanel>
 
       {/* ── Withdrawal reasons tab ────────────────────────────────────────── */}
-      <TabPanel active={tab === 2}>
+      <TabPanel active={tab === 2} id="admin-panel-2" labelledBy="admin-tab-2">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(240px, 1fr) auto' }, gap: 1, mb: 2 }}>
           <TextField label="เหตุผล" size="small" value={newReasonName} onChange={(e) => setNewReasonName(e.target.value)} />
           <Button variant="contained" onClick={handleAddReason} sx={{ minHeight: 40 }}>เพิ่ม</Button>
@@ -536,14 +547,15 @@ export function AdminPage() {
           open={deletingReason !== null}
           title="ลบเหตุผลเบิกของ"
           description={`ต้องการลบ "${deletingReason?.name}" ใช่หรือไม่?`}
-          onClose={() => setDeletingReason(null)}
+          onClose={() => { setDeletingReason(null); setDeleteError(null); }}
           onConfirm={handleDeleteReason}
           loading={deleteSubmitting}
+          error={deleteError}
         />
       </TabPanel>
 
       {/* ── Users tab ─────────────────────────────────────────────────────── */}
-      <TabPanel active={tab === 3}>
+      <TabPanel active={tab === 3} id="admin-panel-3" labelledBy="admin-tab-3">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(180px, 1fr) 120px auto' }, gap: 1, mb: 2 }}>
           <TextField label="Username" size="small" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} />
           <TextField label="Password ชั่วคราว" size="small" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
@@ -623,9 +635,10 @@ export function AdminPage() {
           open={deletingUser !== null}
           title="ลบผู้ใช้งาน"
           description={`ต้องการลบผู้ใช้ "${deletingUser?.username}" ใช่หรือไม่?`}
-          onClose={() => setDeletingUser(null)}
+          onClose={() => { setDeletingUser(null); setDeleteError(null); }}
           onConfirm={handleDeleteUser}
           loading={deleteSubmitting}
+          error={deleteError}
         />
       </TabPanel>
     </>
