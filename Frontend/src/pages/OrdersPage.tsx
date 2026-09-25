@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -7,6 +7,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { PageHeader } from '../components/PageHeader';
@@ -20,9 +21,30 @@ import type { PaymentPayerResponse, PaymentSource, PlatformResponse, ProductResp
 import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
+type OrderSortField = 'date' | 'status' | 'item' | 'price';
+type SortDirection = 'asc' | 'desc';
 
 function receiptDateLabel(value: string | null) {
   return value ? new Date(value).toLocaleDateString('th-TH') : 'ยังไม่รับของ';
+}
+
+function localDayBoundary(value: string, dayOffset = 0) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day + dayOffset).getTime();
+}
+
+function filterOrderItems(order: PurchaseOrderResponse, query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase('th-TH');
+  if (!normalizedQuery) return order.items;
+
+  return order.items.filter((item) => [
+    item.productName,
+    item.packageName,
+    item.model,
+    item.shopName,
+    item.description,
+    item.trackingNo,
+  ].filter(Boolean).join(' ').toLocaleLowerCase('th-TH').includes(normalizedQuery));
 }
 
 export function OrdersPage() {
@@ -36,6 +58,13 @@ export function OrdersPage() {
 
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [itemFilter, setItemFilter] = useState('');
+  const [sortField, setSortField] = useState<OrderSortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -114,6 +143,81 @@ export function OrdersPage() {
     return next;
   });
 
+  const invalidDateRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+  const filteredOrders = useMemo(() => {
+    if (invalidDateRange) return [];
+    const startTime = dateFrom ? localDayBoundary(dateFrom) : null;
+    const endTime = dateTo ? localDayBoundary(dateTo, 1) : null;
+    const filtered = orders.filter((order) => {
+      const orderedAt = new Date(order.orderedAt).getTime();
+      if (startTime !== null && orderedAt < startTime) return false;
+      if (endTime !== null && orderedAt >= endTime) return false;
+      return filterOrderItems(order, itemFilter).length > 0;
+    });
+
+    const valueFor = (order: PurchaseOrderResponse): string | number => {
+      if (sortField === 'date') return new Date(order.orderedAt).getTime();
+      if (sortField === 'status') return purchaseOrderStatusLabel[order.status] ?? order.status;
+      if (sortField === 'item') return filterOrderItems(order, itemFilter).map((item) => item.productName).sort((a, b) => a.localeCompare(b, 'th')).join(' / ');
+      return order.actualPaidAmount ?? order.totalAmount;
+    };
+
+    const multiplier = sortDirection === 'asc' ? 1 : -1;
+    return filtered.sort((left, right) => {
+      const leftValue = valueFor(left);
+      const rightValue = valueFor(right);
+      const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue), 'th');
+      if (comparison !== 0) return comparison * multiplier;
+      return new Date(right.orderedAt).getTime() - new Date(left.orderedAt).getTime();
+    });
+  }, [dateFrom, dateTo, invalidDateRange, itemFilter, orders, sortDirection, sortField]);
+
+  const exportRowCount = filteredOrders.reduce((count, order) => count + filterOrderItems(order, itemFilter).length, 0);
+
+  const handleExportExcel = async () => {
+    if (exportRowCount === 0 || invalidDateRange || exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const XLSX = await import('xlsx');
+      const rows = filteredOrders.flatMap((order) => filterOrderItems(order, itemFilter).map((item) => ({
+        'วันที่สั่ง': new Date(order.orderedAt),
+        'แพลตฟอร์ม': order.platformCode,
+        'เลข Order': order.platformOrderNo,
+        'สถานะ': purchaseOrderStatusLabel[order.status] ?? order.status,
+        'ผู้สั่ง': order.orderedByUsername,
+        'สินค้า': item.productName,
+        'ชื่อหน้ากล่อง': item.packageName ?? '',
+        'รุ่น': item.model ?? '',
+        'ร้าน': item.shopName ?? '',
+        'รายละเอียด': item.description ?? '',
+        'จำนวน': item.qty,
+        'ราคาต่อชิ้น': item.unitPrice,
+        'รวมรายการ': item.qty * item.unitPrice,
+        'ยอด Order': order.actualPaidAmount ?? order.totalAmount,
+        'TRACKING': item.trackingNo ?? '',
+        'วันที่รับของ': item.arrivedAt ? new Date(item.arrivedAt) : null,
+      })));
+      const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true, dateNF: 'dd/mm/yyyy hh:mm' });
+      worksheet['!cols'] = [
+        { wch: 20 }, { wch: 14 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 28 },
+        { wch: 24 }, { wch: 22 }, { wch: 24 }, { wch: 36 }, { wch: 10 }, { wch: 16 },
+        { wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
+      ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+      const now = new Date();
+      const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      XLSX.writeFile(workbook, `orders-${dateStamp}.xlsx`, { compression: true });
+    } catch {
+      setExportError('ส่งออก Excel ไม่สำเร็จ กรุณาลองอีกครั้ง');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (
       formPlatformId === '' || !formOrderNo.trim() ||
@@ -191,30 +295,91 @@ export function OrdersPage() {
     <>
       <PageHeader
         title="รายการออเดอร์"
-        subtitle="กรองสถานะหรือค้นหาเลขออเดอร์"
+        subtitle="ค้นหา กรอง และจัดเรียงรายการออเดอร์ พร้อมส่งออก Excel"
         action={<Button variant="contained" startIcon={<AddIcon />} onClick={openDialog}>สั่งของใหม่</Button>}
       />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {exportError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>{exportError}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดออเดอร์" sx={{ mb: 2 }} />}
 
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', '& > .MuiFormControl-root': { flex: { xs: '1 1 100%', sm: '0 1 220px' } } }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5, mb: 2, alignItems: 'start' }}>
         <ResponsiveSelectField
           label="สถานะ"
-          size="small"
           value={statusFilter}
           options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(purchaseOrderStatusLabel).map(([value, label]) => ({ value, label }))]}
           onChange={(value) => setStatusFilter(String(value))}
         />
         <TextField
           label="ค้นหาเลขออเดอร์"
-          size="small"
+          fullWidth
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
         />
-        <Button variant="outlined" onClick={handleSearch} sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: 44 }}>ค้นหา</Button>
+        <TextField
+          label="วันที่สั่งตั้งแต่"
+          type="date"
+          fullWidth
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { 'aria-label': 'วันที่สั่งตั้งแต่' } }}
+        />
+        <TextField
+          label="ถึงวันที่"
+          type="date"
+          fullWidth
+          error={invalidDateRange}
+          helperText={invalidDateRange ? 'วันที่สิ้นสุดต้องไม่น้อยกว่าวันที่เริ่มต้น' : ' '}
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { 'aria-label': 'วันที่สั่งถึง' } }}
+        />
+        <TextField
+          label="กรองสินค้า / Item"
+          placeholder="ชื่อสินค้า รุ่น ร้าน หรือรายละเอียด"
+          fullWidth
+          value={itemFilter}
+          onChange={(event) => setItemFilter(event.target.value)}
+        />
+        <ResponsiveSelectField
+          label="เรียงตาม"
+          value={sortField}
+          options={[
+            { value: 'date', label: 'วันที่สั่ง' },
+            { value: 'status', label: 'สถานะ' },
+            { value: 'item', label: 'สินค้า / Item' },
+            { value: 'price', label: 'ยอด Order / จ่ายจริง' },
+          ]}
+          onChange={(value) => setSortField(String(value) as OrderSortField)}
+        />
+        <ResponsiveSelectField
+          label="ลำดับ"
+          value={sortDirection}
+          options={[
+            { value: 'desc', label: 'ใหม่ / มาก / ฮ-ก ก่อน' },
+            { value: 'asc', label: 'เก่า / น้อย / ก-ฮ ก่อน' },
+          ]}
+          onChange={(value) => setSortDirection(String(value) as SortDirection)}
+        />
+        <Box sx={{ display: 'flex', gap: 1, gridColumn: { xs: 'auto', sm: '1 / -1' }, flexWrap: 'wrap' }}>
+          <Button variant="outlined" onClick={handleSearch} sx={{ minHeight: 48, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>ค้นหา Order</Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<FileDownloadOutlinedIcon />}
+            onClick={() => void handleExportExcel()}
+            disabled={loading || exporting || exportRowCount === 0 || invalidDateRange}
+            sx={{ minHeight: 48, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
+          >
+            {exporting ? 'กำลังเตรียม Excel…' : `Export Excel (${exportRowCount})`}
+          </Button>
+        </Box>
       </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }} aria-live="polite">
+        แสดง {filteredOrders.length} Order · {exportRowCount} รายการสินค้า
+      </Typography>
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
@@ -231,7 +396,7 @@ export function OrdersPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {orders.map((o) => (
+            {filteredOrders.map((o) => (
               <Fragment key={o.id}>
               <TableRow hover>
                 <TableCell>{o.platformCode}</TableCell>
@@ -283,7 +448,7 @@ export function OrdersPage() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {o.items.map((item) => (
+                          {filterOrderItems(o, itemFilter).map((item) => (
                             <TableRow key={item.id}>
                               <TableCell>{item.productName}</TableCell>
                               <TableCell>{item.packageName || '—'}</TableCell>
@@ -305,7 +470,7 @@ export function OrdersPage() {
               </TableRow>
               </Fragment>
             ))}
-            {!loading && orders.length === 0 && (
+            {!loading && filteredOrders.length === 0 && (
               <TableRow><TableCell colSpan={8} align="center">ไม่มีออเดอร์</TableCell></TableRow>
             )}
           </TableBody>
@@ -313,7 +478,7 @@ export function OrdersPage() {
       </TableContainer>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
-        {orders.map((o) => (
+        {filteredOrders.map((o) => (
           <Paper key={o.id} variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
               <Box sx={{ minWidth: 0 }}>
@@ -345,7 +510,7 @@ export function OrdersPage() {
             </Box>
             <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-mobile-${o.id}`}>
               <Box sx={{ display: 'grid', gap: 1, mt: 2 }}>
-                {o.items.map((item) => (
+                {filterOrderItems(o, itemFilter).map((item) => (
                   <Paper key={item.id} variant="outlined" sx={{ p: 1.5 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, auto) minmax(0, 1fr)', gap: 0.75, mt: 1 }}>
@@ -365,7 +530,7 @@ export function OrdersPage() {
             )}
           </Paper>
         ))}
-        {!loading && orders.length === 0 && (
+        {!loading && filteredOrders.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีออเดอร์</Paper>
         )}
       </Box>
