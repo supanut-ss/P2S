@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, InputAdornment, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TableSortLabel, TextField, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, TableSortLabel, Typography,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
@@ -18,7 +17,6 @@ export function CancellationsPage() {
 
   const [cancellations, setCancellations] = useState<CancellationResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('RefundPending');
-  const [search, setSearch] = useState('');
   type SortField = 'id' | 'product' | 'order' | 'refund' | 'status' | 'flaggedAt';
   const [sortField, setSortField] = useState<SortField>('flaggedAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -80,8 +78,6 @@ export function CancellationsPage() {
   );
 
   const visibleCancellations = useMemo(() => {
-    const q = search.trim().toLocaleLowerCase('th-TH');
-    const filtered = q ? cancellations.filter((c) => [c.productName, c.platformCode, c.platformOrderNo].join(' ').toLocaleLowerCase('th-TH').includes(q)) : cancellations;
     const valueFor = (c: CancellationResponse): string | number => {
       switch (sortField) {
         case 'id': return c.id;
@@ -94,13 +90,13 @@ export function CancellationsPage() {
       }
     };
     const mult = sortDirection === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => {
+    return [...cancellations].sort((a, b) => {
       const av = valueFor(a);
       const bv = valueFor(b);
       const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
       return cmp * mult;
     });
-  }, [cancellations, search, sortField, sortDirection]);
+  }, [cancellations, sortField, sortDirection]);
 
   return (
     <>
@@ -109,24 +105,14 @@ export function CancellationsPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดรายการยกเลิก" sx={{ mb: 2 }} />}
 
-      <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        <ResponsiveSelectField
-          label="สถานะ"
-          size="small"
-          value={statusFilter}
-          options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
-          onChange={(value) => setStatusFilter(String(value))}
-          sx={{ minWidth: 180 }}
-        />
-        <TextField
-          size="small"
-          placeholder="ค้นหาสินค้าหรือเลขออเดอร์"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ minWidth: 220 }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-        />
-      </Box>
+      <ResponsiveSelectField
+        label="สถานะ"
+        size="small"
+        value={statusFilter}
+        options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
+        onChange={(value) => setStatusFilter(String(value))}
+        sx={{ mb: 2, minWidth: 180 }}
+      />
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">

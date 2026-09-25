@@ -21,7 +21,7 @@ import type { PaymentPayerResponse, PaymentSource, PlatformResponse, ProductResp
 import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
-type OrderSortField = 'date' | 'status' | 'item' | 'price';
+type OrderSortField = 'platform' | 'orderNo' | 'date' | 'status' | 'item' | 'orderedBy' | 'paymentPlan' | 'price';
 type SortDirection = 'asc' | 'desc';
 
 function receiptDateLabel(value: string | null) {
@@ -185,9 +185,13 @@ export function OrdersPage() {
     });
 
     const valueFor = (order: PurchaseOrderResponse): string | number => {
+      if (sortField === 'platform') return order.platformCode;
+      if (sortField === 'orderNo') return order.platformOrderNo;
       if (sortField === 'date') return new Date(order.orderedAt).getTime();
       if (sortField === 'status') return purchaseOrderStatusLabel[order.status] ?? order.status;
       if (sortField === 'item') return filterOrderItems(order, itemFilter).map((item) => item.productName).sort((a, b) => a.localeCompare(b, 'th')).join(' / ');
+      if (sortField === 'orderedBy') return order.orderedByUsername;
+      if (sortField === 'paymentPlan') return (order.plannedPaymentSource ?? order.paymentSource) === 'CompanyDirect' ? 'เจ้าของ/บริษัทจ่ายตรง' : 'พนักงานสำรองจ่าย';
       return order.actualPaidAmount ?? order.totalAmount;
     };
 
@@ -427,8 +431,7 @@ export function OrdersPage() {
         <Box sx={{ display: 'flex', gap: 1, gridColumn: { xs: 'auto', sm: '1 / -1' }, flexWrap: 'wrap' }}>
           <Button variant="outlined" onClick={handleSearch} sx={{ minHeight: 48, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>ค้นหา Order</Button>
           <Button
-            variant="contained"
-            color="secondary"
+            variant="outlined"
             startIcon={<FileDownloadOutlinedIcon />}
             onClick={() => void handleExportExcel()}
             disabled={loading || exporting || exportRowCount === 0 || invalidDateRange}
@@ -465,13 +468,21 @@ export function OrdersPage() {
           </colgroup>
           <TableHead>
             <TableRow>
-              <TableCell>แพลตฟอร์ม</TableCell>
-              <TableCell>เลข Order</TableCell>
+              <TableCell sortDirection={sortField === 'platform' ? sortDirection : false}>
+                {sortLabel('platform', 'แพลตฟอร์ม')}
+              </TableCell>
+              <TableCell sortDirection={sortField === 'orderNo' ? sortDirection : false}>
+                {sortLabel('orderNo', 'เลข Order')}
+              </TableCell>
               <TableCell sortDirection={sortField === 'item' ? sortDirection : false}>
                 {sortLabel('item', 'สินค้า / Item')}
               </TableCell>
-              <TableCell>ผู้สั่ง</TableCell>
-              <TableCell>แผนการจ่าย</TableCell>
+              <TableCell sortDirection={sortField === 'orderedBy' ? sortDirection : false}>
+                {sortLabel('orderedBy', 'ผู้สั่ง')}
+              </TableCell>
+              <TableCell sortDirection={sortField === 'paymentPlan' ? sortDirection : false}>
+                {sortLabel('paymentPlan', 'แผนการจ่าย')}
+              </TableCell>
               <TableCell align="right" sortDirection={sortField === 'price' ? sortDirection : false}>
                 {sortLabel('price', 'ยอดสินค้า / จ่ายจริง')}
               </TableCell>

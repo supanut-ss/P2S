@@ -4,8 +4,6 @@ import {
   LinearProgress, Paper, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TableSortLabel, Tabs, TextField, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import InputAdornment from '@mui/material/InputAdornment';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { PageHeader } from '../components/PageHeader';
@@ -87,7 +85,6 @@ export function AdminPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [productSearch, setProductSearch] = useState('');
   const [productSortField, setProductSortField] = useState<'name' | 'sku' | 'category' | 'unit'>('name');
   const [productSortDir, setProductSortDir] = useState<SortDirection>('asc');
 
@@ -103,7 +100,6 @@ export function AdminPage() {
 
   const [deletingPlatform, setDeletingPlatform] = useState<PlatformResponse | null>(null);
 
-  const [platformSearch, setPlatformSearch] = useState('');
   const [platformSortField, setPlatformSortField] = useState<'code' | 'name'>('code');
   const [platformSortDir, setPlatformSortDir] = useState<SortDirection>('asc');
 
@@ -118,7 +114,6 @@ export function AdminPage() {
 
   const [deletingReason, setDeletingReason] = useState<WithdrawalReasonResponse | null>(null);
 
-  const [reasonSearch, setReasonSearch] = useState('');
   const [reasonSortDir, setReasonSortDir] = useState<SortDirection>('asc');
 
   // ── Users ─────────────────────────────────────────────────────────────────
@@ -136,7 +131,6 @@ export function AdminPage() {
 
   const [deletingUser, setDeletingUser] = useState<UserResponse | null>(null);
 
-  const [userSearch, setUserSearch] = useState('');
   const [userSortField, setUserSortField] = useState<'username' | 'fullName' | 'role'>('username');
   const [userSortDir, setUserSortDir] = useState<SortDirection>('asc');
 
@@ -343,12 +337,10 @@ export function AdminPage() {
     <TableSortLabel active={productSortField === field} direction={productSortField === field ? productSortDir : 'asc'} onClick={() => handleProductSort(field)}>{label}</TableSortLabel>
   );
   const filteredProducts = useMemo(() => {
-    const q = productSearch.trim().toLocaleLowerCase('th-TH');
-    const filtered = q ? products.filter((p) => [p.name, p.skuCode, p.category, p.unit].join(' ').toLocaleLowerCase('th-TH').includes(q)) : products;
     const valueFor = (p: ProductResponse) => (productSortField === 'name' ? p.name : productSortField === 'sku' ? p.skuCode : productSortField === 'category' ? p.category : p.unit);
     const mult = productSortDir === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
-  }, [products, productSearch, productSortField, productSortDir]);
+    return [...products].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
+  }, [products, productSortField, productSortDir]);
 
   const handlePlatformSort = (field: typeof platformSortField) => {
     if (platformSortField === field) setPlatformSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -358,23 +350,19 @@ export function AdminPage() {
     <TableSortLabel active={platformSortField === field} direction={platformSortField === field ? platformSortDir : 'asc'} onClick={() => handlePlatformSort(field)}>{label}</TableSortLabel>
   );
   const filteredPlatforms = useMemo(() => {
-    const q = platformSearch.trim().toLocaleLowerCase('th-TH');
-    const filtered = q ? platforms.filter((p) => [p.code, p.name].join(' ').toLocaleLowerCase('th-TH').includes(q)) : platforms;
     const valueFor = (p: PlatformResponse) => (platformSortField === 'code' ? p.code : p.name);
     const mult = platformSortDir === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
-  }, [platforms, platformSearch, platformSortField, platformSortDir]);
+    return [...platforms].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
+  }, [platforms, platformSortField, platformSortDir]);
 
   const handleReasonSort = () => setReasonSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
   const reasonSortLabel = (label: string) => (
     <TableSortLabel active direction={reasonSortDir} onClick={handleReasonSort}>{label}</TableSortLabel>
   );
   const filteredReasons = useMemo(() => {
-    const q = reasonSearch.trim().toLocaleLowerCase('th-TH');
-    const filtered = q ? reasons.filter((r) => r.name.toLocaleLowerCase('th-TH').includes(q)) : reasons;
     const mult = reasonSortDir === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'th') * mult);
-  }, [reasons, reasonSearch, reasonSortDir]);
+    return [...reasons].sort((a, b) => a.name.localeCompare(b.name, 'th') * mult);
+  }, [reasons, reasonSortDir]);
 
   const handleUserSort = (field: typeof userSortField) => {
     if (userSortField === field) setUserSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -384,12 +372,10 @@ export function AdminPage() {
     <TableSortLabel active={userSortField === field} direction={userSortField === field ? userSortDir : 'asc'} onClick={() => handleUserSort(field)}>{label}</TableSortLabel>
   );
   const filteredUsers = useMemo(() => {
-    const q = userSearch.trim().toLocaleLowerCase('th-TH');
-    const filtered = q ? users.filter((u) => [u.username, u.fullName, u.role].join(' ').toLocaleLowerCase('th-TH').includes(q)) : users;
     const valueFor = (u: UserResponse) => (userSortField === 'username' ? u.username : userSortField === 'fullName' ? u.fullName : u.role);
     const mult = userSortDir === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
-  }, [users, userSearch, userSortField, userSortDir]);
+    return [...users].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
+  }, [users, userSortField, userSortDir]);
 
   // ── Action cell helper ────────────────────────────────────────────────────
   const ActionButtons = ({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) => (
@@ -422,14 +408,6 @@ export function AdminPage() {
           <Button variant="contained" onClick={handleAddProduct}>เพิ่ม</Button>
         </Box>
 
-        <TextField
-          size="small"
-          placeholder="ค้นหาสินค้า (ชื่อ, SKU, หมวดหมู่, หน่วย)"
-          value={productSearch}
-          onChange={(e) => setProductSearch(e.target.value)}
-          sx={{ mb: 2, maxWidth: { sm: 360 } }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-        />
 
         {/* Desktop table */}
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
@@ -514,14 +492,6 @@ export function AdminPage() {
           <Button variant="contained" onClick={handleAddPlatform} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>เพิ่ม</Button>
         </Box>
 
-        <TextField
-          size="small"
-          placeholder="ค้นหา Platform (code, ชื่อ)"
-          value={platformSearch}
-          onChange={(e) => setPlatformSearch(e.target.value)}
-          sx={{ mb: 2, maxWidth: { sm: 360 } }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-        />
 
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
@@ -593,14 +563,6 @@ export function AdminPage() {
           <Button variant="contained" onClick={handleAddReason}>เพิ่ม</Button>
         </Box>
 
-        <TextField
-          size="small"
-          placeholder="ค้นหาเหตุผล"
-          value={reasonSearch}
-          onChange={(e) => setReasonSearch(e.target.value)}
-          sx={{ mb: 2, maxWidth: { sm: 360 } }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-        />
 
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
@@ -677,14 +639,6 @@ export function AdminPage() {
           <Button variant="contained" onClick={handleAddUser}>เพิ่ม</Button>
         </Box>
 
-        <TextField
-          size="small"
-          placeholder="ค้นหาผู้ใช้งาน (username, ชื่อเต็ม, role)"
-          value={userSearch}
-          onChange={(e) => setUserSearch(e.target.value)}
-          sx={{ mb: 2, maxWidth: { sm: 360 } }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-        />
 
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">

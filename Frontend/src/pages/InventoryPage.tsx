@@ -1,11 +1,10 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, LinearProgress,
+  Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, TextField, Typography,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import SearchIcon from '@mui/icons-material/Search';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
@@ -24,7 +23,6 @@ export function InventoryPage() {
   const [expandedSkus, setExpandedSkus] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState('');
   type SortField = 'sku' | 'name' | 'received' | 'onHand' | 'cost' | 'status' | 'receivedAt';
   const [sortField, setSortField] = useState<SortField>('sku');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -168,8 +166,6 @@ export function InventoryPage() {
   );
 
   const visibleGroups = useMemo(() => {
-    const q = search.trim().toLocaleLowerCase('th-TH');
-    const filtered = q ? skuGroups.filter((g) => [g.skuCode, g.productName].join(' ').toLocaleLowerCase('th-TH').includes(q)) : skuGroups;
     const valueFor = (g: typeof skuGroups[number]): string | number => {
       switch (sortField) {
         case 'sku': return g.skuCode;
@@ -183,13 +179,13 @@ export function InventoryPage() {
       }
     };
     const mult = sortDirection === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => {
+    return [...skuGroups].sort((a, b) => {
       const av = valueFor(a);
       const bv = valueFor(b);
       const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
       return cmp * mult;
     });
-  }, [skuGroups, search, sortField, sortDirection]);
+  }, [skuGroups, sortField, sortDirection]);
 
   const toggleSku = (skuCode: string) => {
     setExpandedSkus((current) => {
@@ -207,7 +203,7 @@ export function InventoryPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดคลังสินค้า" sx={{ mb: 2 }} />}
 
-      <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ mb: 2 }}>
         <ResponsiveSelectField
           label="สถานะ"
           size="small"
@@ -215,14 +211,6 @@ export function InventoryPage() {
           options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(inventoryItemStatusLabel).map(([value, label]) => ({ value, label }))]}
           onChange={(value) => setStatusFilter(String(value))}
           sx={{ minWidth: 180 }}
-        />
-        <TextField
-          size="small"
-          placeholder="ค้นหา SKU หรือชื่อสินค้า"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ minWidth: 220 }}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
         />
       </Box>
 

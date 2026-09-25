@@ -1,4 +1,5 @@
 import { createTheme, type PaletteMode } from '@mui/material/styles';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import { tokens } from './tokens';
 
 /**
@@ -183,6 +184,9 @@ export function createAppTheme(mode: PaletteMode) {
         },
       },
       MuiTableSortLabel: {
+        defaultProps: {
+          IconComponent: KeyboardArrowDownRoundedIcon,
+        },
         styleOverrides: {
           root: {
             color: color.mutedForeground,
@@ -200,6 +204,9 @@ export function createAppTheme(mode: PaletteMode) {
           },
           icon: {
             opacity: 0.45,
+            fontSize: '1.1rem',
+            marginLeft: 2,
+            marginRight: 0,
           },
         },
       },
