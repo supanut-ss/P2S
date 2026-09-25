@@ -1,12 +1,12 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
-  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, TextField, Typography,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { PageHeader } from '../components/PageHeader';
-import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
 import { inventoryItemStatusLabel } from '../theme/tokens';
 import { listInventory, withdraw } from '../api/inventoryApi';
@@ -14,6 +14,13 @@ import { createSupplierReturn } from '../api/cancellationsApi';
 import { getWithdrawalReasons } from '../api/masterDataApi';
 import type { InventoryItemResponse, WithdrawalReasonResponse } from '../types/models';
 import { useAuth } from '../auth/AuthContext';
+import {
+  AppDataGrid,
+  AppDataGridToolbar,
+  DataGridProductCell,
+  DataGridStatusChip,
+} from '../components/data-grid';
+import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 
@@ -23,9 +30,7 @@ export function InventoryPage() {
   const [expandedSkus, setExpandedSkus] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
-  type SortField = 'sku' | 'name' | 'received' | 'onHand' | 'cost' | 'status' | 'receivedAt';
-  const [sortField, setSortField] = useState<SortField>('sku');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,13 +69,13 @@ export function InventoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
 
-  const openWithdraw = (item: InventoryItemResponse) => {
+  const openWithdraw = useCallback((item: InventoryItemResponse) => {
     setTarget(item);
     setQty(1);
     setReasonId(reasons[0]?.id ?? '');
     setNote('');
     setFormError(null);
-  };
+  }, [reasons]);
 
   const handleWithdraw = async () => {
     if (!target || reasonId === '' || qty <= 0) {
@@ -143,6 +148,7 @@ export function InventoryPage() {
       const averageCost = qtyOnHand > 0 ? stockValue / qtyOnHand : qtyReceived > 0 ? receivedValue / qtyReceived : 0;
 
       return {
+        id: skuCode,
         skuCode,
         productId: lots[0].productId,
         productName: lots[0].productName,
@@ -157,35 +163,14 @@ export function InventoryPage() {
     }).sort((a, b) => a.skuCode.localeCompare(b.skuCode, 'th'));
   }, [items]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortField(field); setSortDirection('asc'); }
-  };
-  const sortLabel = (field: SortField, label: string) => (
-    <TableSortLabel active={sortField === field} direction={sortField === field ? sortDirection : 'asc'} onClick={() => handleSort(field)}>{label}</TableSortLabel>
-  );
-
   const visibleGroups = useMemo(() => {
-    const valueFor = (g: typeof skuGroups[number]): string | number => {
-      switch (sortField) {
-        case 'sku': return g.skuCode;
-        case 'name': return g.productName;
-        case 'received': return g.qtyReceived;
-        case 'onHand': return g.qtyOnHand;
-        case 'cost': return g.stockValue;
-        case 'status': return g.status;
-        case 'receivedAt': return new Date(g.latestReceivedAt).getTime();
-        default: return '';
-      }
-    };
-    const mult = sortDirection === 'asc' ? 1 : -1;
-    return [...skuGroups].sort((a, b) => {
-      const av = valueFor(a);
-      const bv = valueFor(b);
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
-      return cmp * mult;
-    });
-  }, [skuGroups, sortField, sortDirection]);
+    let list = skuGroups;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((g) => g.skuCode.toLowerCase().includes(q) || g.productName.toLowerCase().includes(q));
+    }
+    return list;
+  }, [skuGroups, searchQuery]);
 
   const toggleSku = (skuCode: string) => {
     setExpandedSkus((current) => {
@@ -196,6 +181,154 @@ export function InventoryPage() {
     });
   };
 
+  // DataGrid Columns for Desktop
+  const columns = useMemo<GridColDef<typeof skuGroups[number]>[]>(() => [
+    {
+      field: 'skuCode',
+      headerName: 'SKU',
+      width: 140,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'productName',
+      headerName: 'สินค้า / รายการ',
+      flex: 1.5,
+      minWidth: 260,
+      renderCell: (params) => (
+        <DataGridProductCell
+          name={params.row.productName}
+          sku={params.row.skuCode}
+          subtitle={`${params.row.lots.length} ล็อตสินค้า`}
+        />
+      ),
+    },
+    {
+      field: 'qtyReceived',
+      headerName: 'รับเข้ารวม',
+      type: 'number',
+      width: 110,
+      headerAlign: 'right',
+      align: 'right',
+    },
+    {
+      field: 'qtyOnHand',
+      headerName: 'คงเหลือรวม',
+      type: 'number',
+      width: 120,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'averageCost',
+      headerName: 'ต้นทุนเฉลี่ย / มูลค่าคงเหลือ',
+      width: 210,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Box sx={{ textAlign: 'right', width: '100%' }}>
+          <Typography variant="body2">{thb.format(params.row.averageCost)} / ชิ้น</Typography>
+          <Typography variant="caption" color="text.secondary">
+            มูลค่าคงเหลือ {thb.format(params.row.stockValue)}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'สถานะ',
+      width: 130,
+      renderCell: (params) => <DataGridStatusChip status={params.value} />,
+    },
+    {
+      field: 'latestReceivedAt',
+      headerName: 'รับเข้าล่าสุด',
+      width: 130,
+      valueFormatter: (value) => (value ? new Date(value).toLocaleDateString('th-TH') : '—'),
+    },
+    {
+      field: 'actions',
+      headerName: 'จัดการ',
+      width: 130,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => {
+        const availableLot = params.row.lots.find((l) => l.qtyOnHand > 0 && l.status === 'InStock');
+        if (!availableLot) return null;
+        return (
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={(e) => {
+              e.stopPropagation();
+              openWithdraw(availableLot);
+            }}
+          >
+            เบิกออก
+          </Button>
+        );
+      },
+    },
+  ], [openWithdraw]);
+
+  // Detail panel rendered when a row is expanded
+  const renderDetailPanel = (group: typeof skuGroups[number]) => (
+    <Box sx={{ pl: 4, pr: 2, py: 1 }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '12px' }}>
+        <Table size="small" aria-label={`ล็อตสินค้า SKU ${group.skuCode}`}>
+          <TableHead>
+            <TableRow>
+              <TableCell>ออเดอร์ / ผู้สั่ง</TableCell>
+              <TableCell>รับเข้าเมื่อ</TableCell>
+              <TableCell align="right">รับเข้า</TableCell>
+              <TableCell align="right">คงเหลือ</TableCell>
+              <TableCell align="right">ต้นทุน/ชิ้น</TableCell>
+              <TableCell>สถานะ</TableCell>
+              <TableCell align="right">จัดการล็อตนี้</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {group.lots.map((item) => (
+              <TableRow key={item.id} hover>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.platformCode}: {item.platformOrderNo}</Typography>
+                  <Typography variant="caption" color="text.secondary">ผู้สั่ง {item.orderedByUsername}</Typography>
+                </TableCell>
+                <TableCell>{new Date(item.receivedAt).toLocaleDateString('th-TH')}</TableCell>
+                <TableCell align="right">{item.qtyReceived}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>{item.qtyOnHand}</TableCell>
+                <TableCell align="right">{thb.format(item.costPerUnit)}</TableCell>
+                <TableCell><DataGridStatusChip status={item.status} /></TableCell>
+                <TableCell align="right">
+                  {item.status === 'InStock' && (
+                    <Button size="small" variant="outlined" onClick={() => openWithdraw(item)} sx={{ mr: 1 }}>
+                      เบิกออก
+                    </Button>
+                  )}
+                  {canReturn(item) && (
+                    <Button size="small" variant="outlined" color="warning" onClick={() => openSupplierReturn(item)}>
+                      คืนผู้ขาย
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
   return (
     <>
       <PageHeader title="คลังสินค้า" subtitle="ยอดรวมแยกตาม SKU และขยายดูรายละเอียดแต่ละล็อตได้" />
@@ -203,7 +336,35 @@ export function InventoryPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดคลังสินค้า" sx={{ mb: 2 }} />}
 
-      <Box sx={{ mb: 2 }}>
+      {/* Desktop View: MUI X Data Grid with In-house Master-Detail */}
+      <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 3 }}>
+        <AppDataGrid
+          rows={visibleGroups}
+          columns={columns}
+          loading={loading}
+          getRowId={(row) => row.skuCode}
+          renderDetailPanel={renderDetailPanel}
+          toolbar={
+            <AppDataGridToolbar
+              statusOptions={[
+                { value: '', label: 'ทุกสถานะ' },
+                { value: 'InStock', label: 'มีในคลัง' },
+                { value: 'Depleted', label: 'หมดแล้ว' },
+              ]}
+              selectedStatus={statusFilter}
+              onStatusChange={(val) => setStatusFilter(val)}
+              searchValue={searchQuery}
+              onSearchChange={(val) => setSearchQuery(val)}
+              searchPlaceholder="ค้นหา SKU หรือชื่อสินค้า..."
+            />
+          }
+          emptyMessage="ไม่มีของในคลัง"
+          rowHeight={68}
+        />
+      </Box>
+
+      {/* Mobile View: Card View */}
+      <Box sx={{ display: { xs: 'block', lg: 'none' }, mb: 2 }}>
         <ResponsiveSelectField
           label="สถานะ"
           size="small"
@@ -213,104 +374,6 @@ export function InventoryPage() {
           sx={{ minWidth: 180 }}
         />
       </Box>
-
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>{sortLabel('sku', 'SKU')}</TableCell>
-              <TableCell>{sortLabel('name', 'สินค้า / ล็อต')}</TableCell>
-              <TableCell align="right">{sortLabel('received', 'รับเข้ารวม')}</TableCell>
-              <TableCell align="right">{sortLabel('onHand', 'คงเหลือรวม')}</TableCell>
-              <TableCell align="right">{sortLabel('cost', 'ต้นทุนเฉลี่ย / มูลค่าคงเหลือ')}</TableCell>
-              <TableCell>{sortLabel('status', 'สถานะ')}</TableCell>
-              <TableCell>{sortLabel('receivedAt', 'รับเข้าล่าสุด')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {visibleGroups.map((group) => {
-              const expanded = expandedSkus.has(group.skuCode);
-              const detailsId = `sku-lots-${group.productId}`;
-              return (
-                <Fragment key={group.skuCode}>
-                  <TableRow hover>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          aria-label={expanded ? `ย่อรายการล็อต SKU ${group.skuCode}` : `ขยายรายการล็อต SKU ${group.skuCode}`}
-                          aria-expanded={expanded}
-                          aria-controls={expanded ? detailsId : undefined}
-                          onClick={() => toggleSku(group.skuCode)}
-                          sx={{ minWidth: 40, minHeight: 40 }}
-                        >
-                          {expanded ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
-                        </IconButton>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{group.skuCode}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{group.productName}</Typography>
-                      <Typography variant="caption" color="text.secondary">{group.lots.length} ล็อตสินค้า</Typography>
-                    </TableCell>
-                    <TableCell align="right">{group.qtyReceived}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>{group.qtyOnHand}</TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2">{thb.format(group.averageCost)} / ชิ้น</Typography>
-                      <Typography variant="caption" color="text.secondary">มูลค่าคงเหลือ {thb.format(group.stockValue)}</Typography>
-                    </TableCell>
-                    <TableCell><StatusBadge status={group.status} label={inventoryItemStatusLabel[group.status] ?? group.status} /></TableCell>
-                    <TableCell>{new Date(group.latestReceivedAt).toLocaleDateString('th-TH')}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={7} sx={{ p: 0, borderBottom: expanded ? undefined : 0 }}>
-                      <Collapse id={detailsId} in={expanded} timeout="auto" unmountOnExit>
-                        <TableContainer sx={{ px: 2, py: 1 }}>
-                          <Table size="small" aria-label={`ล็อตสินค้า SKU ${group.skuCode}`}>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>ออเดอร์ / ผู้สั่ง</TableCell>
-                                <TableCell>รับเข้าเมื่อ</TableCell>
-                                <TableCell align="right">รับเข้า</TableCell>
-                                <TableCell align="right">คงเหลือ</TableCell>
-                                <TableCell align="right">ต้นทุน/ชิ้น</TableCell>
-                                <TableCell>สถานะ</TableCell>
-                                <TableCell align="right">จัดการล็อตนี้</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {group.lots.map((item) => (
-                                <TableRow key={item.id}>
-                                  <TableCell>
-                                    <Typography variant="body2">{item.platformCode}: {item.platformOrderNo}</Typography>
-                                    <Typography variant="caption" color="text.secondary">ผู้สั่ง {item.orderedByUsername}</Typography>
-                                  </TableCell>
-                                  <TableCell>{new Date(item.receivedAt).toLocaleDateString('th-TH')}</TableCell>
-                                  <TableCell align="right">{item.qtyReceived}</TableCell>
-                                  <TableCell align="right" sx={{ fontWeight: 600 }}>{item.qtyOnHand}</TableCell>
-                                  <TableCell align="right">{thb.format(item.costPerUnit)}</TableCell>
-                                  <TableCell><StatusBadge status={item.status} label={inventoryItemStatusLabel[item.status] ?? item.status} /></TableCell>
-                                  <TableCell align="right">
-                                    {item.status === 'InStock' && <Button size="small" onClick={() => openWithdraw(item)}>เบิกออก</Button>}
-                                    {canReturn(item) && <Button size="small" color="warning" onClick={() => openSupplierReturn(item)}>คืนผู้ขาย</Button>}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </Fragment>
-              );
-            })}
-            {!loading && visibleGroups.length === 0 && (
-              <TableRow><TableCell colSpan={7} align="center">ไม่มีของในคลัง</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
         {visibleGroups.map((group) => {
@@ -384,6 +447,7 @@ export function InventoryPage() {
         )}
       </Box>
 
+      {/* Dialogs */}
       <Dialog open={target !== null} onClose={() => setTarget(null)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
         <DialogTitle>เบิกของออก — {target?.productName}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
