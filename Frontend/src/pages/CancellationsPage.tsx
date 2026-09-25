@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, InputAdornment, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, TableSortLabel, TextField, Typography,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
@@ -17,6 +18,10 @@ export function CancellationsPage() {
 
   const [cancellations, setCancellations] = useState<CancellationResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('RefundPending');
+  const [search, setSearch] = useState('');
+  type SortField = 'id' | 'product' | 'order' | 'refund' | 'status' | 'flaggedAt';
+  const [sortField, setSortField] = useState<SortField>('flaggedAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [error, setError] = useState<string | null>(null);
   const [resolveTarget, setResolveTarget] = useState<{ id: number; productName: string; outcome: 'Refunded' | 'Adjusted' } | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -66,6 +71,37 @@ export function CancellationsPage() {
     setResolveTarget(null);
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDirection('asc'); }
+  };
+  const sortLabel = (field: SortField, label: string) => (
+    <TableSortLabel active={sortField === field} direction={sortField === field ? sortDirection : 'asc'} onClick={() => handleSort(field)}>{label}</TableSortLabel>
+  );
+
+  const visibleCancellations = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase('th-TH');
+    const filtered = q ? cancellations.filter((c) => [c.productName, c.platformCode, c.platformOrderNo].join(' ').toLocaleLowerCase('th-TH').includes(q)) : cancellations;
+    const valueFor = (c: CancellationResponse): string | number => {
+      switch (sortField) {
+        case 'id': return c.id;
+        case 'product': return c.productName;
+        case 'order': return c.platformOrderNo;
+        case 'refund': return c.refundAmount;
+        case 'status': return c.status;
+        case 'flaggedAt': return new Date(c.flaggedAt).getTime();
+        default: return '';
+      }
+    };
+    const mult = sortDirection === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = valueFor(a);
+      const bv = valueFor(b);
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
+      return cmp * mult;
+    });
+  }, [cancellations, search, sortField, sortDirection]);
+
   return (
     <>
       <PageHeader title="รายการคืน/ยกเลิก" subtitle="ติดตามยอดเงินคืนและสต็อกที่ส่งคืนผู้ขาย" />
@@ -73,32 +109,42 @@ export function CancellationsPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดรายการยกเลิก" sx={{ mb: 2 }} />}
 
-      <ResponsiveSelectField
-        label="สถานะ"
-        size="small"
-        value={statusFilter}
-        options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
-        onChange={(value) => setStatusFilter(String(value))}
-        sx={{ mb: 2, minWidth: 180 }}
-      />
+      <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <ResponsiveSelectField
+          label="สถานะ"
+          size="small"
+          value={statusFilter}
+          options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
+          onChange={(value) => setStatusFilter(String(value))}
+          sx={{ minWidth: 180 }}
+        />
+        <TextField
+          size="small"
+          placeholder="ค้นหาสินค้าหรือเลขออเดอร์"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ minWidth: 220 }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+        />
+      </Box>
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>#</TableCell>
-              <TableCell>สินค้า</TableCell>
-              <TableCell>ออเดอร์</TableCell>
+              <TableCell>{sortLabel('id', '#')}</TableCell>
+              <TableCell>{sortLabel('product', 'สินค้า')}</TableCell>
+              <TableCell>{sortLabel('order', 'ออเดอร์')}</TableCell>
               <TableCell>ผู้สั่ง / ผู้บันทึก</TableCell>
-              <TableCell align="right">จำนวน / เงินคืน</TableCell>
+              <TableCell align="right">{sortLabel('refund', 'จำนวน / เงินคืน')}</TableCell>
               <TableCell>ผูกกับ reimbursement</TableCell>
-              <TableCell>สถานะ</TableCell>
-              <TableCell>วันที่ยกเลิก</TableCell>
+              <TableCell>{sortLabel('status', 'สถานะ')}</TableCell>
+              <TableCell>{sortLabel('flaggedAt', 'วันที่ยกเลิก')}</TableCell>
               <TableCell align="right">จัดการ</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {cancellations.map((c) => (
+            {visibleCancellations.map((c) => (
               <TableRow key={c.id} hover>
                 <TableCell>{c.id}</TableCell>
                 <TableCell>{c.productName}</TableCell>
@@ -118,7 +164,7 @@ export function CancellationsPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {!loading && cancellations.length === 0 && (
+            {!loading && visibleCancellations.length === 0 && (
               <TableRow><TableCell colSpan={9} align="center">ไม่มีรายการ</TableCell></TableRow>
             )}
           </TableBody>
@@ -126,7 +172,7 @@ export function CancellationsPage() {
       </TableContainer>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
-        {cancellations.map((c) => (
+        {visibleCancellations.map((c) => (
           <Paper key={c.id} variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
               <Box sx={{ minWidth: 0 }}>
@@ -156,7 +202,7 @@ export function CancellationsPage() {
             )}
           </Paper>
         ))}
-        {!loading && cancellations.length === 0 && (
+        {!loading && visibleCancellations.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีรายการ</Paper>
         )}
       </Box>

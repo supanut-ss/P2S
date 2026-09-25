@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
   LinearProgress, Paper, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Tabs, TextField, Typography, useMediaQuery, useTheme,
+  TableRow, TableSortLabel, Tabs, TextField, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import InputAdornment from '@mui/material/InputAdornment';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { PageHeader } from '../components/PageHeader';
@@ -15,6 +17,8 @@ import {
   updatePlatform, updateProduct, updateUser, updateWithdrawalReason,
 } from '../api/masterDataApi';
 import type { PlatformResponse, ProductResponse, UserResponse, WithdrawalReasonResponse } from '../types/models';
+
+type SortDirection = 'asc' | 'desc';
 
 function TabPanel({
   active, id, labelledBy, children,
@@ -83,6 +87,10 @@ export function AdminPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const [productSearch, setProductSearch] = useState('');
+  const [productSortField, setProductSortField] = useState<'name' | 'sku' | 'category' | 'unit'>('name');
+  const [productSortDir, setProductSortDir] = useState<SortDirection>('asc');
+
   // ── Platforms ─────────────────────────────────────────────────────────────
   const [platforms, setPlatforms] = useState<PlatformResponse[]>([]);
   const [newPlatformCode, setNewPlatformCode] = useState('');
@@ -95,6 +103,10 @@ export function AdminPage() {
 
   const [deletingPlatform, setDeletingPlatform] = useState<PlatformResponse | null>(null);
 
+  const [platformSearch, setPlatformSearch] = useState('');
+  const [platformSortField, setPlatformSortField] = useState<'code' | 'name'>('code');
+  const [platformSortDir, setPlatformSortDir] = useState<SortDirection>('asc');
+
   // ── Withdrawal reasons ────────────────────────────────────────────────────
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
   const [newReasonName, setNewReasonName] = useState('');
@@ -105,6 +117,9 @@ export function AdminPage() {
   const [editReasonSubmitting, setEditReasonSubmitting] = useState(false);
 
   const [deletingReason, setDeletingReason] = useState<WithdrawalReasonResponse | null>(null);
+
+  const [reasonSearch, setReasonSearch] = useState('');
+  const [reasonSortDir, setReasonSortDir] = useState<SortDirection>('asc');
 
   // ── Users ─────────────────────────────────────────────────────────────────
   const [users, setUsers] = useState<UserResponse[]>([]);
@@ -120,6 +135,10 @@ export function AdminPage() {
   const [editUserSubmitting, setEditUserSubmitting] = useState(false);
 
   const [deletingUser, setDeletingUser] = useState<UserResponse | null>(null);
+
+  const [userSearch, setUserSearch] = useState('');
+  const [userSortField, setUserSortField] = useState<'username' | 'fullName' | 'role'>('username');
+  const [userSortDir, setUserSortDir] = useState<SortDirection>('asc');
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const loadAll = async () => {
@@ -315,6 +334,63 @@ export function AdminPage() {
     } finally { setDeleteSubmitting(false); }
   };
 
+  // ── Sort/filter helpers ───────────────────────────────────────────────────
+  const handleProductSort = (field: typeof productSortField) => {
+    if (productSortField === field) setProductSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setProductSortField(field); setProductSortDir('asc'); }
+  };
+  const productSortLabel = (field: typeof productSortField, label: string) => (
+    <TableSortLabel active={productSortField === field} direction={productSortField === field ? productSortDir : 'asc'} onClick={() => handleProductSort(field)}>{label}</TableSortLabel>
+  );
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLocaleLowerCase('th-TH');
+    const filtered = q ? products.filter((p) => [p.name, p.skuCode, p.category, p.unit].join(' ').toLocaleLowerCase('th-TH').includes(q)) : products;
+    const valueFor = (p: ProductResponse) => (productSortField === 'name' ? p.name : productSortField === 'sku' ? p.skuCode : productSortField === 'category' ? p.category : p.unit);
+    const mult = productSortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
+  }, [products, productSearch, productSortField, productSortDir]);
+
+  const handlePlatformSort = (field: typeof platformSortField) => {
+    if (platformSortField === field) setPlatformSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setPlatformSortField(field); setPlatformSortDir('asc'); }
+  };
+  const platformSortLabel = (field: typeof platformSortField, label: string) => (
+    <TableSortLabel active={platformSortField === field} direction={platformSortField === field ? platformSortDir : 'asc'} onClick={() => handlePlatformSort(field)}>{label}</TableSortLabel>
+  );
+  const filteredPlatforms = useMemo(() => {
+    const q = platformSearch.trim().toLocaleLowerCase('th-TH');
+    const filtered = q ? platforms.filter((p) => [p.code, p.name].join(' ').toLocaleLowerCase('th-TH').includes(q)) : platforms;
+    const valueFor = (p: PlatformResponse) => (platformSortField === 'code' ? p.code : p.name);
+    const mult = platformSortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
+  }, [platforms, platformSearch, platformSortField, platformSortDir]);
+
+  const handleReasonSort = () => setReasonSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+  const reasonSortLabel = (label: string) => (
+    <TableSortLabel active direction={reasonSortDir} onClick={handleReasonSort}>{label}</TableSortLabel>
+  );
+  const filteredReasons = useMemo(() => {
+    const q = reasonSearch.trim().toLocaleLowerCase('th-TH');
+    const filtered = q ? reasons.filter((r) => r.name.toLocaleLowerCase('th-TH').includes(q)) : reasons;
+    const mult = reasonSortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'th') * mult);
+  }, [reasons, reasonSearch, reasonSortDir]);
+
+  const handleUserSort = (field: typeof userSortField) => {
+    if (userSortField === field) setUserSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setUserSortField(field); setUserSortDir('asc'); }
+  };
+  const userSortLabel = (field: typeof userSortField, label: string) => (
+    <TableSortLabel active={userSortField === field} direction={userSortField === field ? userSortDir : 'asc'} onClick={() => handleUserSort(field)}>{label}</TableSortLabel>
+  );
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLocaleLowerCase('th-TH');
+    const filtered = q ? users.filter((u) => [u.username, u.fullName, u.role].join(' ').toLocaleLowerCase('th-TH').includes(q)) : users;
+    const valueFor = (u: UserResponse) => (userSortField === 'username' ? u.username : userSortField === 'fullName' ? u.fullName : u.role);
+    const mult = userSortDir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
+  }, [users, userSearch, userSortField, userSortDir]);
+
   // ── Action cell helper ────────────────────────────────────────────────────
   const ActionButtons = ({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) => (
     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
@@ -343,18 +419,30 @@ export function AdminPage() {
           <TextField label="SKU" size="small" value={newProductSku} onChange={(e) => setNewProductSku(e.target.value)} />
           <TextField label="หมวดหมู่" size="small" value={newProductCategory} onChange={(e) => setNewProductCategory(e.target.value)} slotProps={{ htmlInput: { maxLength: 100 } }} />
           <TextField label="หน่วย" size="small" value={newProductUnit} onChange={(e) => setNewProductUnit(e.target.value)} />
-          <Button variant="contained" onClick={handleAddProduct} sx={{ minHeight: 40 }}>เพิ่ม</Button>
+          <Button variant="contained" onClick={handleAddProduct}>เพิ่ม</Button>
         </Box>
+
+        <TextField
+          size="small"
+          placeholder="ค้นหาสินค้า (ชื่อ, SKU, หมวดหมู่, หน่วย)"
+          value={productSearch}
+          onChange={(e) => setProductSearch(e.target.value)}
+          sx={{ mb: 2, maxWidth: { sm: 360 } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+        />
 
         {/* Desktop table */}
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
             <TableHead><TableRow>
-              <TableCell>ชื่อ</TableCell><TableCell>SKU</TableCell><TableCell>หมวดหมู่</TableCell><TableCell>หน่วย</TableCell>
+              <TableCell>{productSortLabel('name', 'ชื่อ')}</TableCell>
+              <TableCell>{productSortLabel('sku', 'SKU')}</TableCell>
+              <TableCell>{productSortLabel('category', 'หมวดหมู่')}</TableCell>
+              <TableCell>{productSortLabel('unit', 'หน่วย')}</TableCell>
               <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {products.map((p) => (
+              {filteredProducts.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.skuCode}</TableCell>
@@ -372,7 +460,7 @@ export function AdminPage() {
 
         {/* Mobile cards */}
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
-          {products.map((p) => (
+          {filteredProducts.map((p) => (
             <Card key={p.id} variant="outlined">
               <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -423,17 +511,27 @@ export function AdminPage() {
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 0.55fr) minmax(0, 1fr)', sm: '120px minmax(180px, 1fr) auto' }, gap: 1, mb: 2 }}>
           <TextField label="Code (เช่น SP)" size="small" value={newPlatformCode} onChange={(e) => setNewPlatformCode(e.target.value)} />
           <TextField label="ชื่อ" size="small" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} />
-          <Button variant="contained" onClick={handleAddPlatform} sx={{ minHeight: 40, gridColumn: { xs: '1 / -1', sm: 'auto' } }}>เพิ่ม</Button>
+          <Button variant="contained" onClick={handleAddPlatform} sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>เพิ่ม</Button>
         </Box>
+
+        <TextField
+          size="small"
+          placeholder="ค้นหา Platform (code, ชื่อ)"
+          value={platformSearch}
+          onChange={(e) => setPlatformSearch(e.target.value)}
+          sx={{ mb: 2, maxWidth: { sm: 360 } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+        />
 
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
             <TableHead><TableRow>
-              <TableCell>Code</TableCell><TableCell>ชื่อ</TableCell>
+              <TableCell>{platformSortLabel('code', 'Code')}</TableCell>
+              <TableCell>{platformSortLabel('name', 'ชื่อ')}</TableCell>
               <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {platforms.map((p) => (
+              {filteredPlatforms.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell><Chip label={p.code} size="small" /></TableCell>
                   <TableCell>{p.name}</TableCell>
@@ -448,7 +546,7 @@ export function AdminPage() {
         </TableContainer>
 
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
-          {platforms.map((p) => (
+          {filteredPlatforms.map((p) => (
             <Card key={p.id} variant="outlined">
               <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -492,17 +590,26 @@ export function AdminPage() {
       <TabPanel active={tab === 2} id="admin-panel-2" labelledBy="admin-tab-2">
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(240px, 1fr) auto' }, gap: 1, mb: 2 }}>
           <TextField label="เหตุผล" size="small" value={newReasonName} onChange={(e) => setNewReasonName(e.target.value)} />
-          <Button variant="contained" onClick={handleAddReason} sx={{ minHeight: 40 }}>เพิ่ม</Button>
+          <Button variant="contained" onClick={handleAddReason}>เพิ่ม</Button>
         </Box>
+
+        <TextField
+          size="small"
+          placeholder="ค้นหาเหตุผล"
+          value={reasonSearch}
+          onChange={(e) => setReasonSearch(e.target.value)}
+          sx={{ mb: 2, maxWidth: { sm: 360 } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+        />
 
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
             <TableHead><TableRow>
-              <TableCell>เหตุผล</TableCell>
+              <TableCell>{reasonSortLabel('เหตุผล')}</TableCell>
               <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {reasons.map((r) => (
+              {filteredReasons.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.name}</TableCell>
                   <TableCell align="right">
@@ -516,7 +623,7 @@ export function AdminPage() {
         </TableContainer>
 
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
-          {reasons.map((r) => (
+          {filteredReasons.map((r) => (
             <Card key={r.id} variant="outlined">
               <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -567,17 +674,28 @@ export function AdminPage() {
             options={[{ value: 'staff', label: 'staff' }, { value: 'finance', label: 'finance' }, { value: 'admin', label: 'admin' }]}
             onChange={(value) => setNewUserRole(String(value))}
           />
-          <Button variant="contained" onClick={handleAddUser} sx={{ minHeight: 40 }}>เพิ่ม</Button>
+          <Button variant="contained" onClick={handleAddUser}>เพิ่ม</Button>
         </Box>
+
+        <TextField
+          size="small"
+          placeholder="ค้นหาผู้ใช้งาน (username, ชื่อเต็ม, role)"
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+          sx={{ mb: 2, maxWidth: { sm: 360 } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+        />
 
         <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Table size="small">
             <TableHead><TableRow>
-              <TableCell>Username</TableCell><TableCell>ชื่อเต็ม</TableCell><TableCell>Role</TableCell>
+              <TableCell>{userSortLabel('username', 'Username')}</TableCell>
+              <TableCell>{userSortLabel('fullName', 'ชื่อเต็ม')}</TableCell>
+              <TableCell>{userSortLabel('role', 'Role')}</TableCell>
               <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell>{u.username}</TableCell>
                   <TableCell>{u.fullName}</TableCell>
@@ -593,7 +711,7 @@ export function AdminPage() {
         </TableContainer>
 
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
-          {users.map((u) => (
+          {filteredUsers.map((u) => (
             <Card key={u.id} variant="outlined">
               <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

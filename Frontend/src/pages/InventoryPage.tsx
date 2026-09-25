@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
-  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, LinearProgress,
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, TextField, Typography,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import SearchIcon from '@mui/icons-material/Search';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
@@ -23,6 +24,10 @@ export function InventoryPage() {
   const [expandedSkus, setExpandedSkus] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  type SortField = 'sku' | 'name' | 'received' | 'onHand' | 'cost' | 'status' | 'receivedAt';
+  const [sortField, setSortField] = useState<SortField>('sku');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,6 +159,38 @@ export function InventoryPage() {
     }).sort((a, b) => a.skuCode.localeCompare(b.skuCode, 'th'));
   }, [items]);
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortField(field); setSortDirection('asc'); }
+  };
+  const sortLabel = (field: SortField, label: string) => (
+    <TableSortLabel active={sortField === field} direction={sortField === field ? sortDirection : 'asc'} onClick={() => handleSort(field)}>{label}</TableSortLabel>
+  );
+
+  const visibleGroups = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase('th-TH');
+    const filtered = q ? skuGroups.filter((g) => [g.skuCode, g.productName].join(' ').toLocaleLowerCase('th-TH').includes(q)) : skuGroups;
+    const valueFor = (g: typeof skuGroups[number]): string | number => {
+      switch (sortField) {
+        case 'sku': return g.skuCode;
+        case 'name': return g.productName;
+        case 'received': return g.qtyReceived;
+        case 'onHand': return g.qtyOnHand;
+        case 'cost': return g.stockValue;
+        case 'status': return g.status;
+        case 'receivedAt': return new Date(g.latestReceivedAt).getTime();
+        default: return '';
+      }
+    };
+    const mult = sortDirection === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = valueFor(a);
+      const bv = valueFor(b);
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
+      return cmp * mult;
+    });
+  }, [skuGroups, search, sortField, sortDirection]);
+
   const toggleSku = (skuCode: string) => {
     setExpandedSkus((current) => {
       const next = new Set(current);
@@ -170,7 +207,7 @@ export function InventoryPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดคลังสินค้า" sx={{ mb: 2 }} />}
 
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <ResponsiveSelectField
           label="สถานะ"
           size="small"
@@ -179,23 +216,31 @@ export function InventoryPage() {
           onChange={(value) => setStatusFilter(String(value))}
           sx={{ minWidth: 180 }}
         />
+        <TextField
+          size="small"
+          placeholder="ค้นหา SKU หรือชื่อสินค้า"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ minWidth: 220 }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
+        />
       </Box>
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>SKU</TableCell>
-              <TableCell>สินค้า / ล็อต</TableCell>
-              <TableCell align="right">รับเข้ารวม</TableCell>
-              <TableCell align="right">คงเหลือรวม</TableCell>
-              <TableCell align="right">ต้นทุนเฉลี่ย / มูลค่าคงเหลือ</TableCell>
-              <TableCell>สถานะ</TableCell>
-              <TableCell>รับเข้าล่าสุด</TableCell>
+              <TableCell>{sortLabel('sku', 'SKU')}</TableCell>
+              <TableCell>{sortLabel('name', 'สินค้า / ล็อต')}</TableCell>
+              <TableCell align="right">{sortLabel('received', 'รับเข้ารวม')}</TableCell>
+              <TableCell align="right">{sortLabel('onHand', 'คงเหลือรวม')}</TableCell>
+              <TableCell align="right">{sortLabel('cost', 'ต้นทุนเฉลี่ย / มูลค่าคงเหลือ')}</TableCell>
+              <TableCell>{sortLabel('status', 'สถานะ')}</TableCell>
+              <TableCell>{sortLabel('receivedAt', 'รับเข้าล่าสุด')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {skuGroups.map((group) => {
+            {visibleGroups.map((group) => {
               const expanded = expandedSkus.has(group.skuCode);
               const detailsId = `sku-lots-${group.productId}`;
               return (
@@ -272,7 +317,7 @@ export function InventoryPage() {
                 </Fragment>
               );
             })}
-            {!loading && skuGroups.length === 0 && (
+            {!loading && visibleGroups.length === 0 && (
               <TableRow><TableCell colSpan={7} align="center">ไม่มีของในคลัง</TableCell></TableRow>
             )}
           </TableBody>
@@ -280,7 +325,7 @@ export function InventoryPage() {
       </TableContainer>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
-        {skuGroups.map((group) => {
+        {visibleGroups.map((group) => {
           const expanded = expandedSkus.has(group.skuCode);
           const detailsId = `sku-mobile-lots-${group.productId}`;
           return (
@@ -346,7 +391,7 @@ export function InventoryPage() {
             </Paper>
           );
         })}
-        {!loading && skuGroups.length === 0 && (
+        {!loading && visibleGroups.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีของในคลัง</Paper>
         )}
       </Box>

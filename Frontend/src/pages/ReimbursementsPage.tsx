@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
-  LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  LinearProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, TextField, Typography,
 } from '@mui/material';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
@@ -37,6 +37,14 @@ export function ReimbursementsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+
+  type RequestSortField = 'id' | 'requester' | 'total' | 'status' | 'requestedAt';
+  const [requestSortField, setRequestSortField] = useState<RequestSortField>('requestedAt');
+  const [requestSortDirection, setRequestSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  type EligibleSortField = 'platform' | 'orderNo' | 'amount';
+  const [eligibleSortField, setEligibleSortField] = useState<EligibleSortField>('orderNo');
+  const [eligibleSortDirection, setEligibleSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const load = async () => {
     setLoading(true);
@@ -116,6 +124,58 @@ export function ReimbursementsPage() {
   };
 
   const selectedTotal = eligibleOrders.filter((o) => selected.has(o.id)).reduce((sum, o) => sum + (o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount), 0);
+
+  const handleRequestSort = (field: RequestSortField) => {
+    if (requestSortField === field) setRequestSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setRequestSortField(field); setRequestSortDirection('asc'); }
+  };
+  const requestSortLabel = (field: RequestSortField, label: string) => (
+    <TableSortLabel active={requestSortField === field} direction={requestSortField === field ? requestSortDirection : 'asc'} onClick={() => handleRequestSort(field)}>{label}</TableSortLabel>
+  );
+  const sortedReimbursements = useMemo(() => {
+    const valueFor = (r: ReimbursementResponse): string | number => {
+      switch (requestSortField) {
+        case 'id': return r.id;
+        case 'requester': return r.requestedByUsername;
+        case 'total': return r.totalAmount;
+        case 'status': return r.status;
+        case 'requestedAt': return new Date(r.requestedAt).getTime();
+        default: return '';
+      }
+    };
+    const mult = requestSortDirection === 'asc' ? 1 : -1;
+    return [...reimbursements].sort((a, b) => {
+      const av = valueFor(a);
+      const bv = valueFor(b);
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
+      return cmp * mult;
+    });
+  }, [reimbursements, requestSortField, requestSortDirection]);
+
+  const handleEligibleSort = (field: EligibleSortField) => {
+    if (eligibleSortField === field) setEligibleSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setEligibleSortField(field); setEligibleSortDirection('asc'); }
+  };
+  const eligibleSortLabel = (field: EligibleSortField, label: string) => (
+    <TableSortLabel active={eligibleSortField === field} direction={eligibleSortField === field ? eligibleSortDirection : 'asc'} onClick={() => handleEligibleSort(field)}>{label}</TableSortLabel>
+  );
+  const sortedEligibleOrders = useMemo(() => {
+    const valueFor = (o: PurchaseOrderResponse): string | number => {
+      switch (eligibleSortField) {
+        case 'platform': return o.platformCode;
+        case 'orderNo': return o.platformOrderNo;
+        case 'amount': return o.reimbursableAmount ?? o.actualPaidAmount ?? o.totalAmount;
+        default: return '';
+      }
+    };
+    const mult = eligibleSortDirection === 'asc' ? 1 : -1;
+    return [...eligibleOrders].sort((a, b) => {
+      const av = valueFor(a);
+      const bv = valueFor(b);
+      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
+      return cmp * mult;
+    });
+  }, [eligibleOrders, eligibleSortField, eligibleSortDirection]);
 
   const renderOrderDetails = (request: ReimbursementResponse) => (
     <Stack spacing={0.75} sx={{ minWidth: 0 }}>
@@ -330,13 +390,13 @@ export function ReimbursementsPage() {
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox" />
-              <TableCell>แพลตฟอร์ม</TableCell>
-              <TableCell>เลขออเดอร์ / สินค้า</TableCell>
-              <TableCell align="right">ยอดเบิกสุทธิ</TableCell>
+              <TableCell>{eligibleSortLabel('platform', 'แพลตฟอร์ม')}</TableCell>
+              <TableCell>{eligibleSortLabel('orderNo', 'เลขออเดอร์ / สินค้า')}</TableCell>
+              <TableCell align="right">{eligibleSortLabel('amount', 'ยอดเบิกสุทธิ')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {eligibleOrders.map((o) => (
+            {sortedEligibleOrders.map((o) => (
               <TableRow key={o.id} hover onClick={() => toggleSelect(o.id)} sx={{ cursor: 'pointer' }}>
                 <TableCell padding="checkbox"><Checkbox checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)} onClick={(event) => event.stopPropagation()} slotProps={{ input: { 'aria-label': `เลือกออเดอร์ ${o.platformOrderNo}` } }} /></TableCell>
                 <TableCell>{o.platformCode}</TableCell>
@@ -361,7 +421,7 @@ export function ReimbursementsPage() {
         </Table>
       </TableContainer>
       <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' }, mb: 2 }}>
-        {eligibleOrders.map((o) => (
+        {sortedEligibleOrders.map((o) => (
           <Card key={o.id} variant="outlined">
             <CardContent sx={{ '&:last-child': { pb: 2 }, py: 1.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -409,17 +469,17 @@ export function ReimbursementsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>#</TableCell>
-              <TableCell>ผู้ขอเบิก</TableCell>
+              <TableCell>{requestSortLabel('id', '#')}</TableCell>
+              <TableCell>{requestSortLabel('requester', 'ผู้ขอเบิก')}</TableCell>
               <TableCell>ออเดอร์ / รายการสินค้า</TableCell>
-              <TableCell align="right">ยอดรวม</TableCell>
-              <TableCell>สถานะ</TableCell>
-              <TableCell>วันที่ขอ</TableCell>
+              <TableCell align="right">{requestSortLabel('total', 'ยอดรวม')}</TableCell>
+              <TableCell>{requestSortLabel('status', 'สถานะ')}</TableCell>
+              <TableCell>{requestSortLabel('requestedAt', 'วันที่ขอ')}</TableCell>
               <TableCell align="right">จัดการ</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {reimbursements.map((r) => (
+            {sortedReimbursements.map((r) => (
               <TableRow key={r.id} hover>
                 <TableCell>{r.id}</TableCell>
                 <TableCell>{r.requestedByUsername}</TableCell>
@@ -445,7 +505,7 @@ export function ReimbursementsPage() {
         </Table>
       </TableContainer>
       <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' } }}>
-        {reimbursements.map((r) => (
+        {sortedReimbursements.map((r) => (
           <Card key={r.id} variant="outlined">
             <CardContent sx={{ '&:last-child': { pb: 2 }, py: 1.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 1 }}>
