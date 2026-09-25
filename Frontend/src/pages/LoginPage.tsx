@@ -27,6 +27,7 @@ export function LoginPage() {
 
   return (
     <Box
+      component="main"
       sx={{
         minHeight: '100dvh',
         display: 'flex',
@@ -46,8 +47,11 @@ export function LoginPage() {
               alt="Arbify"
               sx={{ width: 200, height: 200, mb: 1.5, objectFit: 'contain', borderRadius: '16px' }}
             />
+            <Typography component="h1" variant="h5" sx={{ fontWeight: 700, textAlign: 'center' }}>
+              เข้าสู่ระบบ
+            </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-              เข้าสู่ระบบด้วย username และ password
+              กรอก username และ password
             </Typography>
           </Box>
 
