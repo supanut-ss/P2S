@@ -56,6 +56,8 @@ export function AppLayout() {
   const visibleNavItems = navItems.filter((item) => canAccessRoute(user?.role, item.to));
   const primaryItems = visibleNavItems.slice(0, 4);
   const activeMobileItem = primaryItems.find((item) => item.to === location.pathname)?.to ?? 'more';
+  const mobileNavigationId = 'mobile-navigation';
+  const accountMenuId = 'account-menu';
 
   const handleLogout = () => {
     setMenuAnchor(null);
@@ -64,36 +66,71 @@ export function AppLayout() {
   };
 
   const drawerContent = (
-    <List sx={{ pt: 1 }}>
-      {visibleNavItems.map((item) => (
-        <ListItemButton
-          key={item.to}
-          component={NavLink}
-          to={item.to}
-          end={item.to === '/'}
-          onClick={() => setMobileOpen(false)}
-          aria-label={isTablet ? item.label : undefined}
-          sx={{
-            mx: 1,
-            minHeight: 48,
-            borderRadius: `${tokens.radius.md}px`,
-            ...(isTablet && { flexDirection: 'column', px: 0.5, py: 1, textAlign: 'center', gap: 0.25 }),
-            '&.active': {
-              backgroundColor: tokens.color.primary,
-              color: tokens.color.primaryForeground,
-              '& .MuiListItemIcon-root': { color: tokens.color.primaryForeground },
-            },
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: isTablet ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
-          <ListItemText primary={item.label} sx={isTablet ? { m: 0, '& .MuiTypography-root': { fontSize: 12, lineHeight: 1.2, overflowWrap: 'anywhere' } } : undefined} />
-        </ListItemButton>
-      ))}
-    </List>
+    <Box component="nav" aria-label={isMobile ? 'เมนูทั้งหมด' : 'เมนูหลัก'} id={isMobile ? mobileNavigationId : undefined}>
+      <List sx={{ pt: 1 }}>
+        {visibleNavItems.map((item) => (
+          <ListItemButton
+            key={item.to}
+            component={NavLink}
+            to={item.to}
+            end={item.to === '/'}
+            onClick={() => setMobileOpen(false)}
+            aria-label={isTablet ? item.label : undefined}
+            sx={{
+              mx: 1,
+              minHeight: 48,
+              borderRadius: `${tokens.radius.md}px`,
+              ...(isTablet && { flexDirection: 'column', px: 0.5, py: 1, textAlign: 'center', gap: 0.25 }),
+              '&.Mui-focusVisible': {
+                outline: '3px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+              },
+              '&.active': {
+                backgroundColor: tokens.color.primary,
+                color: tokens.color.primaryForeground,
+                '& .MuiListItemIcon-root': { color: tokens.color.primaryForeground },
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: isTablet ? 0 : 40, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.label} sx={isTablet ? { m: 0, '& .MuiTypography-root': { fontSize: 12, lineHeight: 1.2, overflowWrap: 'anywhere' } } : undefined} />
+          </ListItemButton>
+        ))}
+      </List>
+    </Box>
   );
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'fixed',
+          top: 'max(8px, env(safe-area-inset-top))',
+          left: 8,
+          zIndex: theme.zIndex.tooltip,
+          transform: 'translateY(calc(-100% - 16px))',
+          px: 2,
+          py: 1,
+          border: 1,
+          borderColor: 'primary.main',
+          borderRadius: 1,
+          bgcolor: 'background.paper',
+          color: 'primary.main',
+          fontWeight: 600,
+          textDecoration: 'none',
+          '&:focus-visible': {
+            transform: 'translateY(0)',
+            outline: '3px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: 2,
+          },
+        }}
+      >
+        ข้ามไปเนื้อหาหลัก
+      </Box>
       <AppBar
         position="fixed"
         elevation={0}
@@ -106,7 +143,7 @@ export function AppLayout() {
         }}
       >
         <Toolbar sx={{ pt: { xs: 'env(safe-area-inset-top)', md: 0 }, minHeight: { xs: 60, md: 64 } }}>
-          {isMobile && <IconButton edge="start" onClick={() => setMobileOpen(true)} aria-label="เปิดเมนูทั้งหมด" sx={{ mr: 1, minWidth: 48, minHeight: 48 }}><MenuIcon /></IconButton>}
+          {isMobile && <IconButton edge="start" onClick={() => setMobileOpen(true)} aria-label="เปิดเมนูทั้งหมด" aria-expanded={mobileOpen} aria-controls={mobileNavigationId} sx={{ mr: 1, minWidth: 48, minHeight: 48, '&.Mui-focusVisible': { outline: '3px solid', outlineColor: 'primary.main', outlineOffset: 2 } }}><MenuIcon /></IconButton>}
           <Box
             component="img"
             src="/logo.jpg"
@@ -114,12 +151,12 @@ export function AppLayout() {
             sx={{ width: 44, height: 44, objectFit: 'contain', borderRadius: '8px' }}
           />
           <Box sx={{ flexGrow: 1 }} />
-          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="เมนูบัญชีผู้ใช้" sx={{ minWidth: 48, minHeight: 48 }}>
+          <IconButton id="account-menu-button" onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="เมนูบัญชีผู้ใช้" aria-haspopup="menu" aria-expanded={Boolean(menuAnchor)} aria-controls={menuAnchor ? accountMenuId : undefined} sx={{ minWidth: 48, minHeight: 48, '&.Mui-focusVisible': { outline: '3px solid', outlineColor: 'primary.main', outlineOffset: 2 } }}>
             <Avatar sx={{ width: 38, height: 38, bgcolor: tokens.color.primary, color: tokens.color.primaryForeground, fontSize: '1rem' }}>
               {user?.fullName?.charAt(0) ?? '?'}
             </Avatar>
           </IconButton>
-          <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+          <Menu id={accountMenuId} anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)} slotProps={{ list: { 'aria-labelledby': 'account-menu-button' } }}>
             <MenuItem disabled>{user?.fullName} · {user?.role}</MenuItem>
             <MenuItem onClick={handleLogout}>ออกจากระบบ</MenuItem>
           </Menu>
@@ -151,7 +188,22 @@ export function AppLayout() {
         </Drawer>
       )}
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${TABLET_RAIL_WIDTH}px)`, lg: `calc(100% - ${DRAWER_WIDTH}px)` }, pb: { xs: 'calc(92px + env(safe-area-inset-bottom))', md: 4 } }}>
+      <Box
+        component="main"
+        id="main-content"
+        tabIndex={-1}
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          width: { md: `calc(100% - ${TABLET_RAIL_WIDTH}px)`, lg: `calc(100% - ${DRAWER_WIDTH}px)` },
+          pb: { xs: 'calc(92px + env(safe-area-inset-bottom))', md: 4 },
+          '&:focus-visible': {
+            outline: '3px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: -3,
+          },
+        }}
+      >
         <Toolbar sx={{ pt: { xs: 'env(safe-area-inset-top)', md: 0 }, minHeight: { xs: 60, md: 64 } }} />
         <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1440, px: { xs: 2, sm: 3, md: 3, lg: 4 }, pt: { xs: 2, md: 3 } }}>
           <Outlet />
@@ -163,10 +215,10 @@ export function AppLayout() {
           aria-label="เมนูหลัก"
           value={activeMobileItem}
           showLabels
-          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: 1, borderColor: 'divider', zIndex: theme.zIndex.appBar, bgcolor: 'background.paper', '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
+          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: 1, borderColor: 'divider', zIndex: theme.zIndex.appBar, bgcolor: 'background.paper', '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56, '&.Mui-focusVisible': { outline: '3px solid', outlineColor: 'primary.main', outlineOffset: -3 } }, '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
         >
           {primaryItems.map((item) => <BottomNavigationAction key={item.to} value={item.to} label={item.label} icon={item.icon} onClick={() => navigate(item.to)} />)}
-          <BottomNavigationAction value="more" label="เพิ่มเติม" icon={<MoreHorizIcon />} onClick={() => setMobileOpen(true)} />
+          <BottomNavigationAction value="more" label="เพิ่มเติม" icon={<MoreHorizIcon />} aria-expanded={mobileOpen} aria-controls={mobileNavigationId} onClick={() => setMobileOpen(true)} />
         </BottomNavigation>
       )}
     </Box>
