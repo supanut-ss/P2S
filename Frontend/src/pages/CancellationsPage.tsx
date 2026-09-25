@@ -19,6 +19,7 @@ export function CancellationsPage() {
   const [statusFilter, setStatusFilter] = useState('RefundPending');
   const [error, setError] = useState<string | null>(null);
   const [resolveTarget, setResolveTarget] = useState<{ id: number; productName: string; outcome: 'Refunded' | 'Adjusted' } | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -41,16 +42,28 @@ export function CancellationsPage() {
 
   const handleResolve = async (id: number, outcome: 'Refunded' | 'Adjusted') => {
     if (resolving) return;
+    setResolveError(null);
     setResolving(true);
     try {
       await resolveCancellation(id, outcome);
       setResolveTarget(null);
       await load();
     } catch {
-      setError('บันทึกผลไม่สำเร็จ');
+      setResolveError('บันทึกผลไม่สำเร็จ กรุณาลองอีกครั้ง');
     } finally {
       setResolving(false);
     }
+  };
+
+  const openResolveDialog = (cancellation: CancellationResponse, outcome: 'Refunded' | 'Adjusted') => {
+    setResolveError(null);
+    setResolveTarget({ id: cancellation.id, productName: cancellation.productName, outcome });
+  };
+
+  const closeResolveDialog = () => {
+    if (resolving) return;
+    setResolveError(null);
+    setResolveTarget(null);
   };
 
   return (
@@ -98,8 +111,8 @@ export function CancellationsPage() {
                 <TableCell align="right">
                   {canResolve && c.status === 'RefundPending' && (
                     <>
-                      <Button size="small" onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Refunded' })}>คืนเงินแล้ว</Button>
-                      <Button size="small" onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Adjusted' })}>ปรับยอดแทน</Button>
+                      <Button size="small" onClick={() => openResolveDialog(c, 'Refunded')}>คืนเงินแล้ว</Button>
+                      <Button size="small" onClick={() => openResolveDialog(c, 'Adjusted')}>ปรับยอดแทน</Button>
                     </>
                   )}
                 </TableCell>
@@ -137,8 +150,8 @@ export function CancellationsPage() {
             </Box>
             {canResolve && c.status === 'RefundPending' && (
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1, mt: 2 }}>
-                <Button variant="outlined" sx={{ minHeight: 44 }} onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Refunded' })}>คืนเงินแล้ว</Button>
-                <Button variant="outlined" sx={{ minHeight: 44 }} onClick={() => setResolveTarget({ id: c.id, productName: c.productName, outcome: 'Adjusted' })}>ปรับยอดแทน</Button>
+                <Button variant="outlined" sx={{ minHeight: 44 }} onClick={() => openResolveDialog(c, 'Refunded')}>คืนเงินแล้ว</Button>
+                <Button variant="outlined" sx={{ minHeight: 44 }} onClick={() => openResolveDialog(c, 'Adjusted')}>ปรับยอดแทน</Button>
               </Box>
             )}
           </Paper>
@@ -147,11 +160,14 @@ export function CancellationsPage() {
           <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีรายการ</Paper>
         )}
       </Box>
-      <Dialog open={resolveTarget !== null} onClose={() => !resolving && setResolveTarget(null)} maxWidth="xs" fullWidth>
+      <Dialog open={resolveTarget !== null} onClose={closeResolveDialog} maxWidth="xs" fullWidth>
         <DialogTitle>ยืนยันผลการคืน/ยกเลิก</DialogTitle>
-        <DialogContent><DialogContentText>บันทึก {resolveTarget?.productName} เป็น “{resolveTarget?.outcome === 'Refunded' ? 'คืนเงินแล้ว' : 'ปรับยอดแล้ว'}”?</DialogContentText></DialogContent>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {resolveError && <Alert severity="error" role="alert">{resolveError}</Alert>}
+          <DialogContentText>บันทึก {resolveTarget?.productName} เป็น “{resolveTarget?.outcome === 'Refunded' ? 'คืนเงินแล้ว' : 'ปรับยอดแล้ว'}”?</DialogContentText>
+        </DialogContent>
         <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 } }}>
-          <Button onClick={() => setResolveTarget(null)} disabled={resolving}>กลับ</Button>
+          <Button onClick={closeResolveDialog} disabled={resolving}>กลับ</Button>
           <Button variant="contained" disabled={resolving} onClick={() => resolveTarget && handleResolve(resolveTarget.id, resolveTarget.outcome)}>ยืนยัน</Button>
         </DialogActions>
       </Dialog>
