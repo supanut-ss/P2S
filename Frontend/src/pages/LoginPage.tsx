@@ -2,8 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { Box, Button, Card, CardContent, TextField, Typography, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { ColorModeToggle } from '../components/ColorModeToggle';
 
-export function LoginPage() {
+export function LoginPage({ mode, onToggleMode }: { mode: 'light' | 'dark'; onToggleMode: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export function LoginPage() {
     <Box
       component="main"
       sx={{
+        position: 'relative',
         minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
@@ -38,6 +40,9 @@ export function LoginPage() {
         py: { xs: 2, sm: 4 },
       }}
     >
+      <Box sx={{ position: 'absolute', top: 'max(8px, env(safe-area-inset-top))', right: 'max(8px, env(safe-area-inset-right))' }}>
+        <ColorModeToggle mode={mode} onToggle={onToggleMode} />
+      </Box>
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>

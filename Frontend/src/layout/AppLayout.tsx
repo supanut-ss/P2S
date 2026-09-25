@@ -30,6 +30,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { canAccessRoute } from '../auth/roleAccess';
 import { tokens } from '../theme/tokens';
+import { ColorModeToggle } from '../components/ColorModeToggle';
 
 const DRAWER_WIDTH = 240;
 const TABLET_RAIL_WIDTH = 88;
@@ -44,7 +45,7 @@ const navItems = [
   { to: '/admin', label: 'ข้อมูลหลัก', icon: <AdminPanelSettingsIcon /> },
 ];
 
-export function AppLayout() {
+export function AppLayout({ mode, onToggleMode }: { mode: 'light' | 'dark'; onToggleMode: () => void }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
@@ -151,6 +152,7 @@ export function AppLayout() {
             sx={{ width: 44, height: 44, objectFit: 'contain', borderRadius: '8px' }}
           />
           <Box sx={{ flexGrow: 1 }} />
+          <ColorModeToggle mode={mode} onToggle={onToggleMode} />
           <IconButton id="account-menu-button" onClick={(e) => setMenuAnchor(e.currentTarget)} aria-label="เมนูบัญชีผู้ใช้" aria-haspopup="menu" aria-expanded={Boolean(menuAnchor)} aria-controls={menuAnchor ? accountMenuId : undefined} sx={{ minWidth: 48, minHeight: 48, '&.Mui-focusVisible': { outline: '3px solid', outlineColor: 'primary.main', outlineOffset: 2 } }}>
             <Avatar sx={{ width: 38, height: 38, bgcolor: tokens.color.primary, color: tokens.color.primaryForeground, fontSize: '1rem' }}>
               {user?.fullName?.charAt(0) ?? '?'}

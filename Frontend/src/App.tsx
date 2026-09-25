@@ -16,27 +16,35 @@ import { InventoryPage } from './pages/InventoryPage';
 import { CancellationsPage } from './pages/CancellationsPage';
 import { AdminPage } from './pages/AdminPage';
 
-function getPreferredMode(): PaletteMode {
-  const mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+const COLOR_MODE_STORAGE_KEY = 'arbify-color-mode';
+
+function getInitialMode(): PaletteMode {
+  let mode: PaletteMode = 'light';
+  try {
+    mode = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch {
+    mode = 'light';
+  }
   document.documentElement.classList.toggle('dark', mode === 'dark');
+  document.documentElement.classList.toggle('light', mode === 'light');
   return mode;
 }
 
 export default function App() {
-  const [mode, setMode] = useState<PaletteMode>(getPreferredMode);
+  const [mode, setMode] = useState<PaletteMode>(getInitialMode);
   const theme = useMemo(() => createAppTheme(mode), [mode]);
 
   useEffect(() => {
-    const preference = window.matchMedia('(prefers-color-scheme: dark)');
-    const syncPreference = (event: MediaQueryListEvent) => {
-      const nextMode = event.matches ? 'dark' : 'light';
-      document.documentElement.classList.toggle('dark', nextMode === 'dark');
-      setMode(nextMode);
-    };
+    try {
+      window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Keep the selected mode for this session when storage is unavailable.
+    }
+    document.documentElement.classList.toggle('dark', mode === 'dark');
+    document.documentElement.classList.toggle('light', mode === 'light');
+  }, [mode]);
 
-    preference.addEventListener('change', syncPreference);
-    return () => preference.removeEventListener('change', syncPreference);
-  }, []);
+  const toggleMode = () => setMode((current) => current === 'light' ? 'dark' : 'light');
 
   return (
     <ThemeProvider theme={theme}>
@@ -44,11 +52,11 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage mode={mode} onToggleMode={toggleMode} />} />
             <Route
               element={
                 <ProtectedRoute>
-                  <AppLayout />
+                  <AppLayout mode={mode} onToggleMode={toggleMode} />
                 </ProtectedRoute>
               }
             >
