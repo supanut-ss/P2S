@@ -659,8 +659,11 @@ export function OrdersPage() {
                   label="สั่งตั้งแต่"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  sx={{ width: 140 }}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { style: { minWidth: 120 } },
+                  }}
+                  sx={{ width: 170 }}
                 />
                 <TextField
                   size="small"
@@ -668,8 +671,11 @@ export function OrdersPage() {
                   label="ถึง"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  sx={{ width: 140 }}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { style: { minWidth: 120 } },
+                  }}
+                  sx={{ width: 170 }}
                 />
                 <TextField
                   size="small"
