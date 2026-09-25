@@ -39,13 +39,17 @@
   --primitive-color-orange-50: #FFF3EA;
   --primitive-color-orange-500: #E67E22;
   --primitive-color-orange-600: #C2660F;
+  --primitive-color-orange-700: #A64F07;
   --primitive-color-green-50: #EEFAF2;
   --primitive-color-green-500: #26A65B;
   --primitive-color-green-600: #1D8548;
+  --primitive-color-green-700: #176C3A;
   --primitive-color-red-50: #FDEFEF;
+  --primitive-color-red-400: #F06B65;
   --primitive-color-red-500: #E0453F;
   --primitive-color-red-600: #C1332D;
   --primitive-color-blue-50: #EEF5FD;
+  --primitive-color-blue-400: #4E94E6;
   --primitive-color-blue-500: #2E7FD1;
   --primitive-color-blue-600: #2266AD;
   --primitive-color-white: #FFFFFF;
@@ -87,25 +91,35 @@
 
 /* === SEMANTIC === */
 :root {
+  color-scheme: light;
   --color-background: #F8FAFA;
   --color-foreground: #141C1C;
+  --color-surface: #FFFFFF;
   --color-primary: #C9A227;
   --color-primary-hover: #A67C24;
   --color-primary-foreground: #141C1C;
+  --color-primary-text: #8A651C;
+  --color-primary-text-hover: #6B4D14;
   --color-secondary: #EEF2F2;
   --color-secondary-foreground: #141C1C;
   --color-muted: #EEF2F2;
-  --color-muted-foreground: #647878;
+  --color-muted-foreground: #475858;
   --color-border: #DFE6E6;
   --color-ring: #A67C24;
   --color-success: #1D8548;
+  --color-success-text: #176C3A;
   --color-success-bg: #EEFAF2;
   --color-warning: #C2660F;
+  --color-warning-text: #A64F07;
+  --color-warning-hover: #E67E22;
+  --color-warning-foreground: #0A0F0F;
   --color-warning-bg: #FFF3EA;
   --color-destructive: #C1332D;
+  --color-destructive-text: #C1332D;
   --color-destructive-foreground: #FFFFFF;
   --color-destructive-bg: #FDEFEF;
   --color-info: #2266AD;
+  --color-info-text: #2266AD;
   --color-info-bg: #EEF5FD;
   --spacing-component: 1rem;
   --spacing-section: 2rem;
@@ -147,18 +161,60 @@
 
 /* === DARK MODE === */
 .dark {
+  color-scheme: dark;
   --color-background: #0A0F0F;
   --color-foreground: #F8FAFA;
+  --color-surface: #141C1C;
+  --color-primary-text: #C9A227;
+  --color-primary-text-hover: #F0DA98;
   --color-secondary: #232E2E;
+  --color-secondary-foreground: #F8FAFA;
   --color-muted: #232E2E;
   --color-muted-foreground: #93A5A5;
-  --color-border: #232E2E;
-  --status-depleted: #93A5A5;
+  --color-border: #354242;
+  --color-ring: #F0DA98;
+  --color-success-text: #26A65B;
+  --color-warning-text: #E67E22;
+  --color-destructive-text: #F06B65;
+  --color-info-text: #4E94E6;
+  --status-depleted: #475858;
+  --input-bg: #0A0F0F;
+  --input-border: #475858;
+  --input-focus-ring: #F0DA98;
+  --card-bg: #141C1C;
+  --card-border: #354242;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --color-background: #0A0F0F;
+    --color-foreground: #F8FAFA;
+    --color-surface: #141C1C;
+    --color-primary-text: #C9A227;
+    --color-primary-text-hover: #F0DA98;
+    --color-secondary: #232E2E;
+    --color-secondary-foreground: #F8FAFA;
+    --color-muted: #232E2E;
+    --color-muted-foreground: #93A5A5;
+    --color-border: #354242;
+    --color-ring: #F0DA98;
+    --color-success-text: #26A65B;
+    --color-warning-text: #E67E22;
+    --color-destructive-text: #F06B65;
+    --color-info-text: #4E94E6;
+    --status-depleted: #475858;
+    --input-bg: #0A0F0F;
+    --input-border: #475858;
+    --input-focus-ring: #F0DA98;
+    --card-bg: #141C1C;
+    --card-border: #354242;
+  }
 }
 
 </style>
 <style>
-  :root { color-scheme: light; }
+  :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 2.5rem clamp(1rem, 5vw, 4rem) 5rem;
@@ -180,7 +236,7 @@
   .space-label { width: 160px; font-size: 0.8rem; color: var(--color-muted-foreground, #6B7280); flex-shrink: 0; }
   .space-bar { height: 14px; background: var(--color-primary, #2563EB); border-radius: 3px; }
   .shape-row { display: flex; flex-wrap: wrap; gap: 1.25rem; }
-  .shape-box { width: 96px; height: 72px; background: #fff; border: 1px solid var(--color-border, #E5E7EB); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 0.4rem; font-size: 0.65rem; color: var(--color-muted-foreground, #6B7280); }
+  .shape-box { width: 96px; height: 72px; background: var(--color-surface); border: 1px solid var(--color-border, #E5E7EB); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 0.4rem; font-size: 0.65rem; color: var(--color-muted-foreground, #6B7280); }
   .components { display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start; }
   .component-block { display: flex; flex-direction: column; gap: 0.6rem; }
   .component-block h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted-foreground, #6B7280); margin: 0; }
@@ -192,6 +248,7 @@
   .card-sample { background: var(--card-bg, #fff); border: 1px solid var(--card-border, var(--color-border, #E5E7EB)); box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,0.1)); border-radius: var(--card-radius, 8px); padding: var(--card-padding, 1.5rem); width: 220px; font-size: 0.875rem; }
   .badge-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .badge { display: inline-block; padding: var(--badge-padding-y, 0.25rem) var(--badge-padding-x, 0.5rem); border-radius: var(--badge-radius, 9999px); font-size: var(--badge-font-size, 0.75rem); font-weight: 600; color: #fff; }
+  .badge.warning { color: var(--color-warning-foreground); }
 </style>
 </head>
 <body>
@@ -606,11 +663,11 @@
         <h3>Status Badges</h3>
         <div class="badge-row">
           <span class="badge" style="background: var(--status-ordered)">Ordered</span>
-          <span class="badge" style="background: var(--status-paid-by-staff)">Paid by staff</span>
+          <span class="badge warning" style="background: var(--status-paid-by-staff)">Paid by staff</span>
           <span class="badge" style="background: var(--status-reimbursed)">Reimbursed</span>
           <span class="badge" style="background: var(--status-delivered)">Delivered</span>
           <span class="badge" style="background: var(--status-cancelled)">Cancelled</span>
-          <span class="badge" style="background: var(--status-refund-pending)">Refund pending</span>
+          <span class="badge warning" style="background: var(--status-refund-pending)">Refund pending</span>
           <span class="badge" style="background: var(--status-in-stock)">In stock</span>
           <span class="badge" style="background: var(--status-depleted)">Depleted</span>
         </div>

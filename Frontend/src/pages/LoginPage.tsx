@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react';
 import { Box, Button, Card, CardContent, TextField, Typography, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { tokens } from '../theme/tokens';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -33,7 +32,7 @@ export function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: tokens.color.background,
+        bgcolor: 'background.default',
         px: { xs: 2, sm: 3 },
         py: { xs: 2, sm: 4 },
       }}

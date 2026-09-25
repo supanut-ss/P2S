@@ -5,6 +5,9 @@
 <title>Mockup — Inventory List</title>
 <style>
 /* === tokens.css (inlined for standalone preview) === */
+/* Do not edit directly - modify tokens.json instead */
+
+/* === PRIMITIVES === */
 :root {
   --primitive-color-gray-50: #F8FAFA;
   --primitive-color-gray-100: #EEF2F2;
@@ -24,16 +27,27 @@
   --primitive-color-teal-600: #0B7F74;
   --primitive-color-teal-700: #086259;
   --primitive-color-teal-800: #064A44;
-  --primitive-color-amber-50: #FFF8EB;
-  --primitive-color-amber-500: #E8A620;
-  --primitive-color-amber-600: #C2860F;
+  --primitive-color-gold-50: #FDF8ED;
+  --primitive-color-gold-100: #F9ECC6;
+  --primitive-color-gold-200: #F0DA98;
+  --primitive-color-gold-500: #C9A227;
+  --primitive-color-gold-600: #A67C24;
+  --primitive-color-gold-700: #8A651C;
+  --primitive-color-gold-800: #6B4D14;
+  --primitive-color-orange-50: #FFF3EA;
+  --primitive-color-orange-500: #E67E22;
+  --primitive-color-orange-600: #C2660F;
+  --primitive-color-orange-700: #A64F07;
   --primitive-color-green-50: #EEFAF2;
   --primitive-color-green-500: #26A65B;
   --primitive-color-green-600: #1D8548;
+  --primitive-color-green-700: #176C3A;
   --primitive-color-red-50: #FDEFEF;
+  --primitive-color-red-400: #F06B65;
   --primitive-color-red-500: #E0453F;
   --primitive-color-red-600: #C1332D;
   --primitive-color-blue-50: #EEF5FD;
+  --primitive-color-blue-400: #4E94E6;
   --primitive-color-blue-500: #2E7FD1;
   --primitive-color-blue-600: #2266AD;
   --primitive-color-white: #FFFFFF;
@@ -63,27 +77,47 @@
   --primitive-radius-lg: 0.75rem;
   --primitive-radius-xl: 1rem;
   --primitive-radius-full: 9999px;
+  --primitive-shadow-none: none;
   --primitive-shadow-sm: 0 1px 2px 0 rgb(20 28 28 / 0.06);
   --primitive-shadow-default: 0 1px 3px 0 rgb(20 28 28 / 0.10), 0 1px 2px -1px rgb(20 28 28 / 0.10);
+  --primitive-shadow-md: 0 4px 8px -2px rgb(20 28 28 / 0.12), 0 2px 4px -2px rgb(20 28 28 / 0.08);
+  --primitive-shadow-lg: 0 10px 20px -4px rgb(20 28 28 / 0.14), 0 4px 8px -4px rgb(20 28 28 / 0.10);
+  --primitive-duration-fast: 120ms;
+  --primitive-duration-normal: 180ms;
+  --primitive-duration-slow: 260ms;
+}
+
+/* === SEMANTIC === */
+:root {
+  color-scheme: light;
   --color-background: #F8FAFA;
   --color-foreground: #141C1C;
+  --color-surface: #FFFFFF;
   --color-primary: #C9A227;
   --color-primary-hover: #A67C24;
   --color-primary-foreground: #141C1C;
+  --color-primary-text: #8A651C;
+  --color-primary-text-hover: #6B4D14;
   --color-secondary: #EEF2F2;
   --color-secondary-foreground: #141C1C;
   --color-muted: #EEF2F2;
-  --color-muted-foreground: #647878;
+  --color-muted-foreground: #475858;
   --color-border: #DFE6E6;
   --color-ring: #A67C24;
   --color-success: #1D8548;
+  --color-success-text: #176C3A;
   --color-success-bg: #EEFAF2;
   --color-warning: #C2660F;
+  --color-warning-text: #A64F07;
+  --color-warning-hover: #E67E22;
+  --color-warning-foreground: #0A0F0F;
   --color-warning-bg: #FFF3EA;
   --color-destructive: #C1332D;
+  --color-destructive-text: #C1332D;
   --color-destructive-foreground: #FFFFFF;
   --color-destructive-bg: #FDEFEF;
   --color-info: #2266AD;
+  --color-info-text: #2266AD;
   --color-info-bg: #EEF5FD;
   --spacing-component: 1rem;
   --spacing-section: 2rem;
@@ -95,6 +129,10 @@
   --status-refund-pending: #C2660F;
   --status-in-stock: #1D8548;
   --status-depleted: #647878;
+}
+
+/* === COMPONENTS === */
+:root {
   --button-bg: #C9A227;
   --button-fg: #141C1C;
   --button-hover-bg: #A67C24;
@@ -118,14 +156,58 @@
   --badge-radius: 9999px;
   --badge-font-size: 0.75rem;
 }
+
+/* === DARK MODE === */
 .dark {
+  color-scheme: dark;
   --color-background: #0A0F0F;
   --color-foreground: #F8FAFA;
+  --color-surface: #141C1C;
+  --color-primary-text: #C9A227;
+  --color-primary-text-hover: #F0DA98;
   --color-secondary: #232E2E;
+  --color-secondary-foreground: #F8FAFA;
   --color-muted: #232E2E;
   --color-muted-foreground: #93A5A5;
-  --color-border: #232E2E;
-  --status-depleted: #93A5A5;
+  --color-border: #354242;
+  --color-ring: #F0DA98;
+  --color-success-text: #26A65B;
+  --color-warning-text: #E67E22;
+  --color-destructive-text: #F06B65;
+  --color-info-text: #4E94E6;
+  --status-depleted: #475858;
+  --input-bg: #0A0F0F;
+  --input-border: #475858;
+  --input-focus-ring: #F0DA98;
+  --card-bg: #141C1C;
+  --card-border: #354242;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --color-background: #0A0F0F;
+    --color-foreground: #F8FAFA;
+    --color-surface: #141C1C;
+    --color-primary-text: #C9A227;
+    --color-primary-text-hover: #F0DA98;
+    --color-secondary: #232E2E;
+    --color-secondary-foreground: #F8FAFA;
+    --color-muted: #232E2E;
+    --color-muted-foreground: #93A5A5;
+    --color-border: #354242;
+    --color-ring: #F0DA98;
+    --color-success-text: #26A65B;
+    --color-warning-text: #E67E22;
+    --color-destructive-text: #F06B65;
+    --color-info-text: #4E94E6;
+    --status-depleted: #475858;
+    --input-bg: #0A0F0F;
+    --input-border: #475858;
+    --input-focus-ring: #F0DA98;
+    --card-bg: #141C1C;
+    --card-border: #354242;
+  }
 }
 
   * { box-sizing: border-box; }
@@ -168,6 +250,7 @@
     border-radius: var(--input-radius);
     padding: var(--input-padding-y) var(--input-padding-x);
     font-size: var(--primitive-fontSize-sm);
+    color: var(--color-foreground);
   }
   .search-input:focus { outline: 2px solid var(--input-focus-ring); outline-offset: 1px; }
   select.search-input { max-width: 180px; }
@@ -201,8 +284,8 @@
   }
   .stat-card .label { font-size: var(--primitive-fontSize-xs); color: var(--color-muted-foreground); text-transform: uppercase; letter-spacing: .04em; }
   .stat-card .value { font-size: var(--primitive-fontSize-2xl); font-weight: 700; margin-top: 4px; }
-  .stat-card .value.success { color: var(--color-success); }
-  .stat-card .value.warning { color: var(--color-warning); }
+  .stat-card .value.success { color: var(--color-success-text); }
+  .stat-card .value.warning { color: var(--color-warning-text); }
 
   /* Inventory cards */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--primitive-spacing-4); }

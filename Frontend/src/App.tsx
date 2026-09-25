@@ -1,6 +1,8 @@
+import { useEffect, useMemo, useState } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
+import type { PaletteMode } from '@mui/material/styles';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { theme } from './theme/theme';
+import { createAppTheme } from './theme/theme';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { RoleRoute } from './auth/RoleRoute';
@@ -14,7 +16,28 @@ import { InventoryPage } from './pages/InventoryPage';
 import { CancellationsPage } from './pages/CancellationsPage';
 import { AdminPage } from './pages/AdminPage';
 
+function getPreferredMode(): PaletteMode {
+  const mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.classList.toggle('dark', mode === 'dark');
+  return mode;
+}
+
 export default function App() {
+  const [mode, setMode] = useState<PaletteMode>(getPreferredMode);
+  const theme = useMemo(() => createAppTheme(mode), [mode]);
+
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-color-scheme: dark)');
+    const syncPreference = (event: MediaQueryListEvent) => {
+      const nextMode = event.matches ? 'dark' : 'light';
+      document.documentElement.classList.toggle('dark', nextMode === 'dark');
+      setMode(nextMode);
+    };
+
+    preference.addEventListener('change', syncPreference);
+    return () => preference.removeEventListener('change', syncPreference);
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

@@ -99,9 +99,10 @@ export function AppLayout() {
         elevation={0}
         sx={{
           zIndex: theme.zIndex.drawer + 1,
-          backgroundColor: tokens.color.white,
-          color: tokens.color.foreground,
-          borderBottom: `1px solid ${tokens.color.border}`,
+          backgroundColor: 'background.paper',
+          color: 'text.primary',
+          borderBottom: 1,
+          borderColor: 'divider',
         }}
       >
         <Toolbar sx={{ pt: { xs: 'env(safe-area-inset-top)', md: 0 }, minHeight: { xs: 60, md: 64 } }}>
@@ -142,7 +143,7 @@ export function AppLayout() {
           sx={{
             width: isTablet ? TABLET_RAIL_WIDTH : DRAWER_WIDTH,
             flexShrink: 0,
-            '& .MuiDrawer-paper': { width: isTablet ? TABLET_RAIL_WIDTH : DRAWER_WIDTH, boxSizing: 'border-box', borderRight: `1px solid ${tokens.color.border}`, overflowX: 'hidden' },
+            '& .MuiDrawer-paper': { width: isTablet ? TABLET_RAIL_WIDTH : DRAWER_WIDTH, boxSizing: 'border-box', borderRight: 1, borderColor: 'divider', overflowX: 'hidden' },
           }}
         >
           <Toolbar />
@@ -162,7 +163,7 @@ export function AppLayout() {
           aria-label="เมนูหลัก"
           value={activeMobileItem}
           showLabels
-          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: `1px solid ${tokens.color.border}`, zIndex: theme.zIndex.appBar, bgcolor: tokens.color.white, '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
+          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 'calc(64px + env(safe-area-inset-bottom))', pb: 'env(safe-area-inset-bottom)', borderTop: 1, borderColor: 'divider', zIndex: theme.zIndex.appBar, bgcolor: 'background.paper', '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.25, minHeight: 56 }, '& .MuiBottomNavigationAction-label': { fontSize: '0.75rem', lineHeight: 1.2, whiteSpace: 'nowrap' } }}
         >
           {primaryItems.map((item) => <BottomNavigationAction key={item.to} value={item.to} label={item.label} icon={item.icon} onClick={() => navigate(item.to)} />)}
           <BottomNavigationAction value="more" label="เพิ่มเติม" icon={<MoreHorizIcon />} onClick={() => setMobileOpen(true)} />
