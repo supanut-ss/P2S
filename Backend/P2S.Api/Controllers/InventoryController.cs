@@ -26,6 +26,7 @@ public class InventoryController : ControllerBase
     public async Task<ActionResult<List<InventoryItemResponse>>> List([FromQuery] string? status, [FromQuery] int? productId, CancellationToken ct)
     {
         var query = _db.InventoryItems
+            .Where(item => item.QtyReceived > 0)
             .Include(i => i.Product)
             .Include(i => i.OrderItem).ThenInclude(o => o.PurchaseOrder).ThenInclude(o => o.Platform)
             .Include(i => i.OrderItem).ThenInclude(o => o.PurchaseOrder).ThenInclude(o => o.OrderedByUser)

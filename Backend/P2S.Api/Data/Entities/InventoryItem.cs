@@ -1,6 +1,6 @@
 namespace P2S.Api.Data.Entities;
 
-/// <summary>One received lot of a product — auto-created the moment its order item is confirmed arrived. One purchase batch = one lot, so cost-per-unit and FIFO come for free.</summary>
+/// <summary>Aggregated inventory lot for one purchase-order line. Receipt events retain each partial-receipt quantity and timestamp.</summary>
 public class InventoryItem
 {
     public int Id { get; set; }

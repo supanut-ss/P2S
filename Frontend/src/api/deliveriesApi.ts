@@ -1,14 +1,21 @@
 import { apiClient } from './client';
-import type { DeliveryMatchMethod, PendingOrderItemResponse } from '../types/models';
+import type { GoodsReceiptOrderResponse } from '../types/models';
 
-export async function getPending(search?: string): Promise<PendingOrderItemResponse[]> {
-  const { data } = await apiClient.get<PendingOrderItemResponse[]>('/api/deliveries/pending', { params: { search } });
+export async function lookupGoodsReceiptOrder(orderNo: string): Promise<GoodsReceiptOrderResponse[]> {
+  const { data } = await apiClient.get<GoodsReceiptOrderResponse[]>('/api/deliveries/orders/lookup', { params: { orderNo } });
   return data;
 }
 
-export async function confirmArrived(orderItemId: number, scannedCode: string, matchMethod: DeliveryMatchMethod): Promise<{ inventoryItemId: number }> {
-  const { data } = await apiClient.post(`/api/deliveries/${orderItemId}/confirm-arrived`, { scannedCode, matchMethod });
+export async function receiveGoodsOrder(
+  purchaseOrderId: number,
+  lines: Array<{ orderItemId: number; quantity: number }>,
+): Promise<{ receiptEventId: number; lineCount: number; unitCount: number }> {
+  const { data } = await apiClient.post('/api/deliveries/orders/receive', { purchaseOrderId, lines });
   return data;
+}
+
+export async function reverseGoodsReceipt(eventId: number, reason: string): Promise<void> {
+  await apiClient.post(`/api/deliveries/receipts/${eventId}/reverse`, { reason });
 }
 
 export async function cancelOrderItem(orderItemId: number, note?: string, refundAmount?: number): Promise<void> {

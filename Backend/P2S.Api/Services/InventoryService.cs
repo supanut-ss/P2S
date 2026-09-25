@@ -15,24 +15,48 @@ public class InventoryService : IInventoryService
         _db = db;
     }
 
-    public async Task<InventoryItem> ReceiveAsync(OrderItem orderItem, CancellationToken ct)
+    public Task<InventoryItem> ReceiveAsync(OrderItem orderItem, int quantity, CancellationToken ct)
     {
-        var lot = new InventoryItem
+        if (quantity <= 0 || quantity > orderItem.Qty - orderItem.ReceivedQty)
         {
-            ProductId = orderItem.ProductId,
-            OrderItemId = orderItem.Id,
-            QtyReceived = orderItem.Qty,
-            QtyOnHand = orderItem.Qty,
-            CostPerUnit = orderItem.UnitPrice,
-            Status = InventoryItemStatus.InStock,
-            ReceivedAt = DateTime.UtcNow,
-        };
+            throw new ArgumentOutOfRangeException(nameof(quantity), "จำนวนรับต้องมากกว่า 0 และไม่เกินจำนวนที่ยังรอรับ");
+        }
 
-        orderItem.Status = OrderItemStatus.Arrived;
-        orderItem.ArrivedAt = lot.ReceivedAt;
+        var receivedAt = DateTime.UtcNow;
+        var lot = orderItem.InventoryItem;
+        if (lot is null)
+        {
+            lot = new InventoryItem
+            {
+                ProductId = orderItem.ProductId,
+                OrderItemId = orderItem.Id,
+                QtyReceived = 0,
+                QtyOnHand = 0,
+                CostPerUnit = orderItem.UnitPrice,
+                Status = InventoryItemStatus.InStock,
+                ReceivedAt = receivedAt,
+            };
+            orderItem.InventoryItem = lot;
+            _db.InventoryItems.Add(lot);
+        }
+
+        lot.QtyReceived += quantity;
+        lot.QtyOnHand += quantity;
+        lot.Status = InventoryItemStatus.InStock;
+        lot.RowVersion += 1;
+        orderItem.ReceivedQty += quantity;
+        orderItem.Status = orderItem.ReceivedQty == orderItem.Qty ? OrderItemStatus.Arrived : OrderItemStatus.Pending;
+        orderItem.ArrivedAt ??= receivedAt;
         orderItem.RowVersion += 1;
 
-        _db.InventoryItems.Add(lot);
+        return Task.FromResult(lot);
+    }
+
+    [Obsolete("Use the quantity overload as part of an audited goods-receipt event.")]
+    public async Task<InventoryItem> ReceiveAsync(OrderItem orderItem, CancellationToken ct)
+    {
+        var remainingQty = orderItem.Qty - orderItem.ReceivedQty;
+        var lot = await ReceiveAsync(orderItem, remainingQty, ct);
         await _db.SaveChangesAsync(ct);
         return lot;
     }

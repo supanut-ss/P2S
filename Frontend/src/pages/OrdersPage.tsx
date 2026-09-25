@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
+  Alert, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, LinearProgress,
   Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { PageHeader } from '../components/PageHeader';
 import { BarcodeScannerDialog } from '../components/BarcodeScannerDialog';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
@@ -19,6 +21,10 @@ import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
 
+function receiptDateLabel(value: string | null) {
+  return value ? new Date(value).toLocaleDateString('th-TH') : 'ยังไม่รับของ';
+}
+
 export function OrdersPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<PurchaseOrderResponse[]>([]);
@@ -30,6 +36,7 @@ export function OrdersPage() {
 
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [orderScannerOpen, setOrderScannerOpen] = useState(false);
@@ -100,6 +107,12 @@ export function OrdersPage() {
 
   const addItem = () => setFormItems((items) => [...items, { productId: products[0]?.id ?? 0, qty: 1, unitPrice: 0 }]);
   const removeItem = (index: number) => setFormItems((items) => items.filter((_, i) => i !== index));
+  const toggleOrderDetails = (orderId: number) => setExpandedOrders((current) => {
+    const next = new Set(current);
+    if (next.has(orderId)) next.delete(orderId);
+    else next.add(orderId);
+    return next;
+  });
 
   const handleCreate = async () => {
     if (
@@ -219,9 +232,22 @@ export function OrdersPage() {
           </TableHead>
           <TableBody>
             {orders.map((o) => (
-              <TableRow key={o.id} hover>
+              <Fragment key={o.id}>
+              <TableRow hover>
                 <TableCell>{o.platformCode}</TableCell>
-                <TableCell>{o.platformOrderNo}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.platformOrderNo}</Typography>
+                  <Button
+                    size="small"
+                    aria-expanded={expandedOrders.has(o.id)}
+                    aria-controls={`order-items-${o.id}`}
+                    onClick={() => toggleOrderDetails(o.id)}
+                    startIcon={expandedOrders.has(o.id) ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                    sx={{ minHeight: 44, px: 0.5 }}
+                  >
+                    {expandedOrders.has(o.id) ? 'ซ่อนรายการ' : `รายการสินค้า (${o.items.length})`}
+                  </Button>
+                </TableCell>
                 <TableCell>{o.orderedByUsername}</TableCell>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -240,6 +266,44 @@ export function OrdersPage() {
                   )}
                 </TableCell>
               </TableRow>
+              <TableRow>
+                <TableCell colSpan={8} sx={{ p: 0, borderBottom: expandedOrders.has(o.id) ? undefined : 0 }}>
+                  <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-${o.id}`}>
+                    <TableContainer component={Paper} variant="outlined" sx={{ m: 1, width: 'calc(100% - 16px)', overflowX: 'auto' }}>
+                      <Table size="small" sx={{ minWidth: 980 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>สินค้า</TableCell>
+                            <TableCell>ชื่อหน้ากล่อง</TableCell>
+                            <TableCell>รุ่น</TableCell>
+                            <TableCell>ร้าน</TableCell>
+                            <TableCell>TRACKING</TableCell>
+                            <TableCell>วันที่รับของ</TableCell>
+                            <TableCell>รายละเอียด</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {o.items.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.productName}</TableCell>
+                              <TableCell>{item.packageName || '—'}</TableCell>
+                              <TableCell>{item.model || '—'}</TableCell>
+                              <TableCell>{item.shopName || '—'}</TableCell>
+                              <TableCell>
+                                {item.trackingNo || 'รอข้อมูลจากระบบ'}
+                                {item.courier ? ` · ${item.courier}` : ''}
+                              </TableCell>
+                              <TableCell>{receiptDateLabel(item.arrivedAt)}</TableCell>
+                              <TableCell sx={{ minWidth: 180, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{item.description || '—'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Collapse>
+                </TableCell>
+              </TableRow>
+              </Fragment>
             ))}
             {!loading && orders.length === 0 && (
               <TableRow><TableCell colSpan={8} align="center">ไม่มีออเดอร์</TableCell></TableRow>
@@ -253,8 +317,18 @@ export function OrdersPage() {
           <Paper key={o.id} variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{o.platformOrderNo}</Typography>
-                <Typography variant="body2" color="text.secondary">{o.platformCode} · {o.orderedByUsername}</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{o.platformOrderNo}</Typography>
+              <Typography variant="body2" color="text.secondary">{o.platformCode} · {o.orderedByUsername}</Typography>
+              <Button
+                size="small"
+                aria-expanded={expandedOrders.has(o.id)}
+                aria-controls={`order-items-mobile-${o.id}`}
+                onClick={() => toggleOrderDetails(o.id)}
+                startIcon={expandedOrders.has(o.id) ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                sx={{ minHeight: 44, px: 0.5, mt: 0.25 }}
+              >
+                {expandedOrders.has(o.id) ? 'ซ่อนรายการสินค้า' : `รายการสินค้า (${o.items.length})`}
+              </Button>
               </Box>
               <StatusBadge status={o.status} label={purchaseOrderStatusLabel[o.status] ?? o.status} />
             </Box>
@@ -269,6 +343,23 @@ export function OrdersPage() {
               <Typography variant="body2" color="text.secondary">วันที่สั่ง</Typography>
               <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
             </Box>
+            <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-mobile-${o.id}`}>
+              <Box sx={{ display: 'grid', gap: 1, mt: 2 }}>
+                {o.items.map((item) => (
+                  <Paper key={item.id} variant="outlined" sx={{ p: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, auto) minmax(0, 1fr)', gap: 0.75, mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">ชื่อหน้ากล่อง</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.packageName || '—'}</Typography>
+                      <Typography variant="body2" color="text.secondary">รุ่น</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.model || '—'}</Typography>
+                      <Typography variant="body2" color="text.secondary">ร้าน</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.shopName || '—'}</Typography>
+                      <Typography variant="body2" color="text.secondary">TRACKING</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.trackingNo || 'รอข้อมูลจากระบบ'}{item.courier ? ` · ${item.courier}` : ''}</Typography>
+                      <Typography variant="body2" color="text.secondary">วันที่รับของ</Typography><Typography variant="body2">{receiptDateLabel(item.arrivedAt)}</Typography>
+                      <Typography variant="body2" color="text.secondary">รายละเอียด</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.description || '—'}</Typography>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            </Collapse>
             {o.status === 'Ordered' && (
               <Button fullWidth variant="outlined" disabled={busyOrders.has(o.id)} sx={{ mt: 2, minHeight: 44 }} onClick={() => openPaymentDialog(o)}>{busyOrders.has(o.id) ? 'กำลังบันทึก…' : 'บันทึกการจ่าย'}</Button>
             )}
@@ -279,7 +370,7 @@ export function OrdersPage() {
         )}
       </Box>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, borderRadius: { xs: 0, sm: 2 } } }}>
         <DialogTitle>สั่งของใหม่</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           {formError && <Alert severity="error">{formError}</Alert>}
@@ -340,21 +431,28 @@ export function OrdersPage() {
 
           <Typography variant="subtitle2">รายการสินค้า</Typography>
           {formItems.map((item, idx) => (
-            <Box key={idx} sx={{ display: 'flex', flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1, alignItems: 'center', border: { xs: '1px solid', sm: 0 }, borderColor: 'divider', borderRadius: 2, p: { xs: 1.5, sm: 0 } }}>
-              <ResponsiveSelectField
-                label="สินค้า"
-                size="small"
-                value={item.productId || ''}
-                options={products.map((product) => ({ value: product.id, label: product.name }))}
-                onChange={(value) => updateItem(idx, { productId: Number(value) })}
-                sx={{ flex: { xs: '1 1 100%', sm: 2 } }}
-              />
-              <TextField label="จำนวน" size="small" type="number" value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} sx={{ flex: 1, minWidth: 0 }} />
-              <TextField label="ราคา/ชิ้น" size="small" type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })} sx={{ flex: 1, minWidth: 0 }} />
-              <IconButton size="small" aria-label={`ลบรายการสินค้า ${idx + 1}`} onClick={() => removeItem(idx)} disabled={formItems.length === 1} sx={{ minWidth: 44, minHeight: 44 }}>
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Box>
+            <Paper key={idx} variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <ResponsiveSelectField
+                  label="สินค้า"
+                  value={item.productId || ''}
+                  options={products.map((product) => ({ value: product.id, label: product.name }))}
+                  onChange={(value) => updateItem(idx, { productId: Number(value) })}
+                  sx={{ flex: 1, minWidth: 0 }}
+                />
+                <IconButton aria-label={`ลบรายการสินค้า ${idx + 1}`} onClick={() => removeItem(idx)} disabled={formItems.length === 1} sx={{ minWidth: 48, minHeight: 48 }}>
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.25, mt: 1.25 }}>
+                <TextField fullWidth label="ชื่อหน้ากล่อง" value={item.packageName ?? ''} onChange={(e) => updateItem(idx, { packageName: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
+                <TextField fullWidth label="รุ่น" value={item.model ?? ''} onChange={(e) => updateItem(idx, { model: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
+                <TextField fullWidth label="ร้าน" value={item.shopName ?? ''} onChange={(e) => updateItem(idx, { shopName: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
+                <TextField fullWidth label="รายละเอียดเพิ่มเติม" multiline minRows={2} value={item.description ?? ''} onChange={(e) => updateItem(idx, { description: e.target.value })} helperText="ยี่ห้อ รุ่น หรือรายละเอียดอื่น ๆ" slotProps={{ htmlInput: { maxLength: 1000 } }} sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' } }} />
+                <TextField fullWidth label="จำนวน" type="number" value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} slotProps={{ htmlInput: { min: 1, step: 1, inputMode: 'numeric' } }} />
+                <TextField fullWidth label="ราคา/ชิ้น" type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })} slotProps={{ htmlInput: { min: 0, step: '0.01', inputMode: 'decimal' } }} />
+              </Box>
+            </Paper>
           ))}
           <Button size="small" startIcon={<AddIcon />} onClick={addItem} sx={{ alignSelf: 'flex-start' }}>เพิ่มรายการ</Button>
           <Typography variant="body2" sx={{ fontWeight: 700 }}>ยอดรวม: {thb.format(total)}</Typography>

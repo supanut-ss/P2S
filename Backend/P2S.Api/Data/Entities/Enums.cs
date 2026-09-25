@@ -58,3 +58,14 @@ public enum DeliveryMatchMethod
     ManualTrackingEntry,
     OrderNumberSearch
 }
+
+public enum GoodsReceiptEventType
+{
+    Receipt,
+    Reversal
+}
+
+public enum GoodsReceiptEntryMethod
+{
+    OrderNumber
+}

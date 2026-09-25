@@ -7,8 +7,6 @@ export type PaymentSource = 'StaffAdvance' | 'CompanyDirect';
 export type ReimbursementStatus = 'Pending' | 'Approved' | 'Paid' | 'Voided';
 export type InventoryItemStatus = 'InStock' | 'Depleted';
 export type CancellationStatus = 'RefundPending' | 'Refunded' | 'Adjusted';
-export type DeliveryMatchMethod = 'Barcode' | 'ManualTrackingEntry' | 'OrderNumberSearch';
-
 export interface ProductResponse {
   id: number;
   name: string;
@@ -44,6 +42,10 @@ export interface OrderItemResponse {
   id: number;
   productId: number;
   productName: string;
+  packageName: string | null;
+  model: string | null;
+  shopName: string | null;
+  description: string | null;
   qty: number;
   unitPrice: number;
   status: OrderItemStatus;
@@ -84,9 +86,56 @@ export interface PendingOrderItemResponse {
   platformOrderNo: string;
   productName: string;
   qty: number;
+  receivedQty: number;
+  remainingQty: number;
   unitPrice: number;
+  status: string;
+}
+
+export interface GoodsReceiptOrderResponse {
+  purchaseOrderId: number;
+  platformCode: string;
+  platformOrderNo: string;
+  orderedAt: string;
+  items: GoodsReceiptOrderLineResponse[];
+  receiptHistory: GoodsReceiptEventResponse[];
+}
+
+export interface GoodsReceiptOrderLineResponse {
+  orderItemId: number;
+  productName: string;
+  skuCode: string;
+  packageName: string | null;
+  model: string | null;
+  shopName: string | null;
   trackingNo: string | null;
-  courier: string | null;
+  arrivedAt: string | null;
+  description: string | null;
+  qty: number;
+  receivedQty: number;
+  remainingQty: number;
+  unitPrice: number;
+  status: string;
+}
+
+export interface GoodsReceiptEventResponse {
+  id: number;
+  eventType: 'Receipt' | 'Reversal';
+  occurredAt: string;
+  actorUsername: string;
+  lineCount: number;
+  unitCount: number;
+  reason: string | null;
+  isReversed: boolean;
+  reversesEventId: number | null;
+  lines: GoodsReceiptHistoryLineResponse[];
+}
+
+export interface GoodsReceiptHistoryLineResponse {
+  productName: string;
+  skuCode: string;
+  quantity: number;
+  unitPrice: number;
 }
 
 export interface InventoryItemResponse {

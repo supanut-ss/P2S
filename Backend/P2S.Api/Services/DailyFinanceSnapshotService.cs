@@ -35,10 +35,17 @@ public class DailyFinanceSnapshotService : IDailyFinanceSnapshotService
         // SaveChangesAsync (not re-queried from the DB, which would apply the column's
         // HasPrecision(18,2) truncation), the oversized scale would otherwise leak into the
         // API response the very first time this runs in a request/response cycle.
+        var legacyInventoryValue = await _db.InventoryItems
+            .Where(item => !item.OrderItem.GoodsReceiptLines.Any()
+                && item.ReceivedAt >= utcRangeStart && item.ReceivedAt < utcRangeEnd)
+            .SumAsync(item => (decimal?)(item.QtyReceived * item.CostPerUnit), cancellationToken) ?? 0m;
+
+        var receiptEventValue = await _db.GoodsReceiptEventLines
+                .Where(line => line.GoodsReceiptEvent.OccurredAt >= utcRangeStart && line.GoodsReceiptEvent.OccurredAt < utcRangeEnd)
+                .SumAsync(line => (decimal?)(line.Quantity * line.UnitPrice * (line.GoodsReceiptEvent.EventType == GoodsReceiptEventType.Receipt ? 1 : -1)), cancellationToken) ?? 0m;
+
         var totalInventoryValueToday = Math.Round(
-            await _db.InventoryItems
-                .Where(i => i.ReceivedAt >= utcRangeStart && i.ReceivedAt < utcRangeEnd)
-                .SumAsync(i => (decimal?)(i.QtyReceived * i.CostPerUnit), cancellationToken) ?? 0m,
+            legacyInventoryValue + receiptEventValue,
             2);
 
         // Open cancellations are a running count too — "cases not yet cleared", not scoped

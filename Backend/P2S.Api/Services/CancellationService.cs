@@ -19,6 +19,10 @@ public class CancellationService : ICancellationService
         {
             throw new InvalidOperationException($"ยกเลิกได้เฉพาะรายการ Pending (สถานะปัจจุบัน: {orderItem.Status})");
         }
+        if (orderItem.ReceivedQty > 0)
+        {
+            throw new InvalidOperationException("ยกเลิกรายการที่รับของบางส่วนแล้วไม่ได้ กรุณาจัดการสินค้าที่รับเข้าคลังแยกต่างหาก");
+        }
         if (refundAmount < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(refundAmount), "ยอดคืนเงินต้องไม่ติดลบ");
@@ -90,11 +94,11 @@ public class CancellationService : ICancellationService
             ?? throw new KeyNotFoundException($"ไม่พบ inventory item id={inventoryItemId}");
 
         var orderItem = inventoryItem.OrderItem;
-        if (orderItem.Status is not (OrderItemStatus.Arrived or OrderItemStatus.Returned))
+        if (orderItem.ReceivedQty <= orderItem.ReturnedQty)
         {
             throw new InvalidOperationException("คืนผู้ขายได้เฉพาะสินค้าที่รับเข้าคลังแล้ว");
         }
-        if (quantity > inventoryItem.QtyOnHand || quantity > orderItem.Qty - orderItem.ReturnedQty)
+        if (quantity > inventoryItem.QtyOnHand || quantity > orderItem.ReceivedQty - orderItem.ReturnedQty)
         {
             throw new InvalidOperationException($"จำนวนคืนเกินยอดที่ยังอยู่ในคลังหรือยังไม่คืน (คงเหลือในคลัง {inventoryItem.QtyOnHand} ชิ้น)");
         }
@@ -120,7 +124,12 @@ public class CancellationService : ICancellationService
         inventoryItem.RowVersion += 1;
         orderItem.ReturnedQty += quantity;
         orderItem.RowVersion += 1;
-        if (orderItem.ReturnedQty == orderItem.Qty) orderItem.Status = OrderItemStatus.Returned;
+        if (orderItem.ReturnedQty == orderItem.Qty && orderItem.ReceivedQty == orderItem.Qty)
+            orderItem.Status = OrderItemStatus.Returned;
+        else if (orderItem.ReceivedQty == orderItem.Qty)
+            orderItem.Status = OrderItemStatus.Arrived;
+        else
+            orderItem.Status = OrderItemStatus.Pending;
 
         var cancellation = new Cancellation
         {

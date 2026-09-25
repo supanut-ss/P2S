@@ -1,6 +1,13 @@
 namespace P2S.Api.Dtos;
 
-public record CreateOrderItemRequest(int ProductId, int Qty, decimal UnitPrice);
+public record CreateOrderItemRequest(
+    int ProductId,
+    int Qty,
+    decimal UnitPrice,
+    string? PackageName = null,
+    string? Model = null,
+    string? ShopName = null,
+    string? Description = null);
 public record CreateOrderRequest(
     int PlatformId,
     string PlatformOrderNo,
@@ -12,6 +19,10 @@ public record OrderItemResponse(
     int Id,
     int ProductId,
     string ProductName,
+    string? PackageName,
+    string? Model,
+    string? ShopName,
+    string? Description,
     int Qty,
     decimal UnitPrice,
     string Status,

@@ -32,11 +32,11 @@
 ### 2.2 Transaction Tables
 
 - **purchase_orders** — platform, `platform_order_no`, `total_amount`, status: `Ordered → PaidByStaff → Reimbursed`
-- **order_items** — แตกรายชิ้น ผูก `product_id`, status: `Pending → Arrived` (ไปต่อ inventory_item) หรือ `Cancelled`
-  - **`tracking_no` / `courier`** *(เพิ่มจากร่างแรก)* — เพราะตัดสินใจใช้**บาร์โค้ด/เลข tracking ของร้าน**สแกนตอนรับของ (ไม่ใช่ QR ที่ระบบ generate เอง อย่างที่ร่างแรกวางแผนไว้) พนักงานต้องกรอกเลข tracking หลังร้านจัดส่ง
+- **order_items** — แตกรายชิ้น ผูก `product_id` และ `received_qty`; รับได้หลายรอบ โดยคง `Pending` จนรับครบแล้วจึงเป็น `Arrived` หรือเป็น `Cancelled`
+- **`goods_receipt_events` / `goods_receipt_event_lines`** — บันทึกการรับด้วยเลข Order ทุกครั้ง พร้อมผู้บันทึก เวลา สินค้า และจำนวนที่รับในรอบนั้น; ไม่ใช้ tracking เป็นเงื่อนไขรับของ
 - **reimbursements** — แทร็กแยกจาก inventory โดยสมบูรณ์, ผูกกับหลาย purchase_orders (many-to-many), status: `Pending → Approved → Paid`
-- **deliveries** — บันทึก scan event จริง (`scanned_code`, `match_method`: Barcode / ManualTrackingEntry / OrderNumberSearch) — ไม่ใช่ QR ที่ระบบ gen เองตามร่างแรก เพราะกล่องที่มาส่งติดสติกเกอร์ร้าน ไม่ใช่ QR ของเรา ต้องมี fallback ค้นด้วยเลขออเดอร์เสมอ (สแกนบาร์โค้ดร้านไม่ติดทุกกล่อง)
-- **inventory_items** — **เป็น lot ไม่ใช่ยอดรวมต่อ SKU** *(เปลี่ยนจากร่างแรก)*: auto สร้างทันทีที่ order_item เป็น `Arrived`, ผูก `product_id` + `order_item_id` (1 lot = 1 ครั้งที่รับของ), `qty_received`, `qty_on_hand`, `cost_per_unit`, status: `InStock` / `Depleted`
+- **deliveries** — เก็บข้อมูล scan รุ่นเดิมเพื่อรองรับประวัติเดิม; หน้ารับของปัจจุบันไม่ใช้ tracking
+- **inventory_items** — **เป็น lot ไม่ใช่ยอดรวมต่อ SKU**: สร้างเมื่อรับครั้งแรกและเพิ่มยอด lot เดิมเมื่อทยอยรับรายการเดิม; `goods_receipt_event_lines` แยกเก็บจำนวนและเวลาของแต่ละรอบ
   - **optimistic concurrency token** (`row_version`, app-managed เพราะ MySQL ไม่มี native rowversion) — กันเบิกพร้อมกัน 2 คนแล้ว `qty_on_hand` ติดลบ
 - **inventory_withdrawals** — `inventory_item_id`, `qty`, `withdrawal_reason_id`, `withdrawn_by`, `withdrawn_at`
 - **cancellations** — ผูก order_item + reimbursement (nullable — null ถ้ายังไม่เคยเบิกตอนถูกยกเลิก), status: `RefundPending → Refunded / Adjusted`
@@ -60,11 +60,11 @@
         → purchase_order.status = Reimbursed
         → staff_ledger_entries: entry_type = Reimbursed (-)
 
-4. ติดตามสถานะพัสดุ — พนักงานกรอก tracking_no/courier หลังร้านจัดส่ง
-   → หน้าสแกนรับของ: สแกนบาร์โค้ด/เลข tracking ของร้าน (ไม่ใช่ QR ของระบบ)
+4. รับของ — พนักงานกรอกเลข Order เพื่อค้นหารายการที่ตรงกัน
+   → เลือกสินค้าและระบุจำนวนที่มาถึงในรอบนี้ (ค่าเริ่มต้นเป็นจำนวนที่ยังรอรับ)
      มี fallback ค้นด้วยเลขออเดอร์เสมอ (สแกนไม่ติดทุกกล่อง)
-        ├─ Confirm ว่าได้รับของแล้ว → order_item.status = Arrived
-        │        → **auto** สร้าง inventory_item (lot ใหม่: product, qty, cost/unit) → เข้าคลังทันที
+        ├─ ยืนยันรับเข้าคลัง → เพิ่ม received_qty และบันทึก goods_receipt_event/lines
+        │        → **auto** เพิ่ม/สร้าง inventory_item lot ของรายการนั้นตามจำนวนที่มาถึง
         │
         └─ ร้านยกเลิก / ของไม่มา → order_item.status = Cancelled
                  → ไม่สร้าง inventory_item, แต่คง record ไว้ (audit)
@@ -92,7 +92,7 @@
 | 1 | Dashboard — สรุปวันนี้ | 🔲 โครง UI พร้อม รอผูก `/api/finance/snapshot/latest` |
 | 2 | Order list — filter/ค้นหา | 🔲 placeholder (รอ controller) |
 | 3 | Reimbursement queue | 🔲 placeholder (รอ controller) |
-| 4 | หน้าสแกนรับของ — mobile-first | 🔲 placeholder (รอ controller + เลือกไลบรารีสแกนบาร์โค้ด) |
+| 4 | หน้ารับของด้วยเลข Order — รองรับมือถือ/แท็บเล็ต/เดสก์ท็อป | ✅ ค้นเลข Order ตรงตัว เลือกสินค้าและจำนวนรับต่อรอบ |
 | 5 | Inventory list + ปุ่มเบิกออก | 🔲 placeholder (รอ controller) — มี mockup อ้างอิงที่ [design/mockup-inventory.html](design/mockup-inventory.html) |
 | 6 | Withdraw dialog | 🔲 รวมอยู่ในหน้า Inventory list |
 | 7 | Cancellation report | 🔲 placeholder (รอ controller) |
@@ -177,7 +177,7 @@ P2S/                                    ← D:\GitSource\P2S (ไม่ใช่
 - [x] Scheduled job `daily_finance_snapshot` ผ่าน `BackgroundService` — **verify จริงกับ MySQL**, เจอและแก้บั๊ก decimal precision ระหว่างทดสอบ
 - [x] ปรับ deploy script จาก EA (FTP path, connection string, CORS origin ผ่าน env var, JWT signing key) — **ยังไม่เคยรันจริง**
 - [x] `/health` endpoint ตาม pattern เดียวกับ EA
-- [ ] ทำหน้าสแกนรับของจริง (เลือกไลบรารีสแกนบาร์โค้ด 1D เช่น `html5-qrcode`/ZXing, ต้องมี HTTPS สำหรับกล้อง, มี fallback กรอกเลขมือ/ค้นเลขออเดอร์เสมอ)
+- [x] ทำหน้ารับของด้วยเลข Order; เลือกสินค้าและจำนวนที่มาถึงได้ รองรับรับหลายรอบ และไม่บังคับ Tracking
 - [ ] เขียน business controllers: Orders, Reimbursements, Deliveries, Inventory, Cancellations, Master data (users/platforms/withdrawal_reasons/products)
 - [ ] ผูก 6 หน้าจอ placeholder เข้ากับ controllers จริงด้านบน
 - [ ] รัน deploy script จริงครั้งแรก — ต้องยืนยัน win-x86 RID กับ Plesk host ก่อน, ต้องมี FTP credentials + connection string จริง + JWT signing key production (ห้ามใช้ค่า dev ซ้ำ)
@@ -190,3 +190,14 @@ P2S/                                    ← D:\GitSource\P2S (ไม่ใช่
 - Finance can correct an order's actual paid amount while its reimbursement is Pending or Approved. Each correction stores the previous and new amount, actor, timestamp, and reason, adjusts the staff ledger, and returns an Approved request to Pending for re-approval; paid requests are locked.
 - Refund cases support partial quantities and amounts, retain reporter/resolver audit data, and block reimbursement while unresolved. Returning goods to a supplier reduces the inventory lot and order-line available quantity; returned stock can never exceed the quantity still on hand.
 - A purchase order can be claimed by only one reimbursement. Optimistic concurrency and database unique indexes protect parallel payment, return, and reimbursement actions.
+
+## 11. Order-number goods receiving update (2026-09-25)
+
+- Staff enter an exact platform Order number; if the same number exists on multiple platforms, the UI shows each platform so the correct order can be selected.
+- Each line defaults to its remaining quantity. Staff can set a line to zero to skip it or enter a smaller whole number; the API rejects quantities above the remaining amount and commits the selected lines as one receipt.
+- An order line stays Pending while partially received and becomes Arrived when `received_qty` reaches `qty`. Repeated receipt events update its inventory lot and append an actor/time/quantity audit record.
+- Historical Arrived and Returned lines are backfilled to `received_qty = qty`. Finance snapshots continue counting legacy lots without receipt events and use receipt/reversal events for new activity.
+- Admins can reverse a receipt event with a reason only while its stock remains untouched and has not been returned; the reversal is retained as a separate audit event.
+- The receiving form uses responsive mobile, tablet, and desktop layouts, keyboard order entry, and touch targets of at least 44px. Tracking numbers and camera scanning are not part of this workflow.
+- Order lines store package label name, model, shop, and freeform description. The Order list shows these fields alongside tracking and the read-only first-received date; that date is set by the receipt workflow, never entered when ordering.
+- Tracking is displayed when present and remains outside the order-entry form. The repository has no upstream shipment-notification connector yet, so automatic notification-to-tracking updates still require that integration.

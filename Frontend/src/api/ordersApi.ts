@@ -5,6 +5,10 @@ export interface CreateOrderItemInput {
   productId: number;
   qty: number;
   unitPrice: number;
+  packageName?: string;
+  model?: string;
+  shopName?: string;
+  description?: string;
 }
 
 export async function createOrder(payload: {

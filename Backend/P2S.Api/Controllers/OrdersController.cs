@@ -33,6 +33,14 @@ public class OrdersController : ControllerBase
         {
             return BadRequest(new { message = "จำนวนสินค้าต้องมากกว่า 0 และราคาต้องไม่ติดลบ" });
         }
+        if (request.Items.Any(item =>
+            (item.PackageName?.Length ?? 0) > 200 ||
+            (item.Model?.Length ?? 0) > 200 ||
+            (item.ShopName?.Length ?? 0) > 200 ||
+            (item.Description?.Length ?? 0) > 1000))
+        {
+            return BadRequest(new { message = "ชื่อหน้ากล่อง รุ่น และร้านต้องไม่เกิน 200 ตัวอักษร และรายละเอียดต้องไม่เกิน 1,000 ตัวอักษร" });
+        }
         if (string.IsNullOrWhiteSpace(request.PlatformOrderNo))
         {
             return BadRequest(new { message = "กรอกเลขออเดอร์จากแพลตฟอร์ม" });
@@ -73,6 +81,10 @@ public class OrdersController : ControllerBase
         order.OrderItems = request.Items.Select(i => new OrderItem
         {
             ProductId = i.ProductId,
+            PackageName = NormalizeOptionalText(i.PackageName),
+            Model = NormalizeOptionalText(i.Model),
+            ShopName = NormalizeOptionalText(i.ShopName),
+            Description = NormalizeOptionalText(i.Description),
             Qty = i.Qty,
             UnitPrice = i.UnitPrice,
             Status = OrderItemStatus.Pending,
@@ -312,8 +324,7 @@ public class OrdersController : ControllerBase
         return File(order.PaymentEvidence, order.PaymentEvidenceContentType, order.PaymentEvidenceFileName, enableRangeProcessing: true);
     }
 
-    /// <summary>Staff records the shop's tracking number once it ships — required before the
-    /// scan-receiving screen can barcode-match this item (see DeliveriesController).</summary>
+    /// <summary>Stores shipping metadata for an order line. Order-number goods receiving does not depend on tracking.</summary>
     [HttpPost("items/{orderItemId:int}/tracking")]
     [Authorize(Roles = "staff,admin")]
     public async Task<IActionResult> SetTracking(int orderItemId, SetTrackingRequest request, CancellationToken ct)
@@ -384,7 +395,11 @@ public class OrdersController : ControllerBase
         order.PlannedPaymentPayerUserId,
         order.PlannedPaymentPayerUser?.Username,
         order.OrderItems.Select(i => new OrderItemResponse(
-            i.Id, i.ProductId, i.Product.Name, i.Qty, i.UnitPrice, i.Status.ToString(), i.ReturnedQty,
+            i.Id, i.ProductId, i.Product.Name, i.PackageName, i.Model, i.ShopName, i.Description,
+            i.Qty, i.UnitPrice, i.Status.ToString(), i.ReturnedQty,
             i.TrackingNo, i.Courier, i.ArrivedAt, i.CancelledAt)).ToList()
     );
+
+    private static string? NormalizeOptionalText(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

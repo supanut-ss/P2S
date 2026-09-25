@@ -31,4 +31,5 @@ public class PurchaseOrder
 
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<StaffLedgerEntry> StaffLedgerEntries { get; set; } = new List<StaffLedgerEntry>();
+    public ICollection<GoodsReceiptEvent> GoodsReceiptEvents { get; set; } = new List<GoodsReceiptEvent>();
 }

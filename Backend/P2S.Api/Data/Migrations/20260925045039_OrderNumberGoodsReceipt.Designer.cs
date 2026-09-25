@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using P2S.Api.Data;
 
@@ -11,9 +12,11 @@ using P2S.Api.Data;
 namespace P2S.Api.Data.Migrations
 {
     [DbContext(typeof(P2SDbContext))]
-    partial class P2SDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925045039_OrderNumberGoodsReceipt")]
+    partial class OrderNumberGoodsReceipt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -335,18 +338,6 @@ namespace P2S.Api.Data.Migrations
                     b.Property<string>("Courier")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<string>("Model")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("PackageName")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
@@ -369,10 +360,6 @@ namespace P2S.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int unsigned")
                         .HasDefaultValue(0u);
-
-                    b.Property<string>("ShopName")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");

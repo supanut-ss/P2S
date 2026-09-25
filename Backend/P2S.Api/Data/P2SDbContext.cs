@@ -22,6 +22,8 @@ public class P2SDbContext : DbContext
     public DbSet<StaffLedgerEntry> StaffLedgerEntries => Set<StaffLedgerEntry>();
     public DbSet<PurchaseOrderPaymentCorrection> PurchaseOrderPaymentCorrections => Set<PurchaseOrderPaymentCorrection>();
     public DbSet<DailyFinanceSnapshot> DailyFinanceSnapshots => Set<DailyFinanceSnapshot>();
+    public DbSet<GoodsReceiptEvent> GoodsReceiptEvents => Set<GoodsReceiptEvent>();
+    public DbSet<GoodsReceiptEventLine> GoodsReceiptEventLines => Set<GoodsReceiptEventLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +70,10 @@ public class P2SDbContext : DbContext
         modelBuilder.Entity<OrderItem>(e =>
         {
             e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.Property(x => x.PackageName).HasMaxLength(200);
+            e.Property(x => x.Model).HasMaxLength(200);
+            e.Property(x => x.ShopName).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(1000);
             e.Property(x => x.ReturnedQty).HasDefaultValue(0);
             e.Property(x => x.RowVersion).HasDefaultValue(0u).IsConcurrencyToken();
             e.HasIndex(x => x.TrackingNo);
@@ -99,6 +105,25 @@ public class P2SDbContext : DbContext
             e.Property(x => x.RowVersion).IsConcurrencyToken();
             e.HasOne(x => x.Product).WithMany(p => p.InventoryItems).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.OrderItem).WithOne(o => o.InventoryItem).HasForeignKey<InventoryItem>(x => x.OrderItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GoodsReceiptEvent>(e =>
+        {
+            e.Property(x => x.EnteredOrderNo).HasMaxLength(100);
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasIndex(x => new { x.PurchaseOrderId, x.OccurredAt });
+            e.HasIndex(x => x.ReversesEventId).IsUnique();
+            e.HasOne(x => x.PurchaseOrder).WithMany(o => o.GoodsReceiptEvents).HasForeignKey(x => x.PurchaseOrderId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ActorUser).WithMany().HasForeignKey(x => x.ActorUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ReversesEvent).WithMany(x => x.ReversedByEvents).HasForeignKey(x => x.ReversesEventId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GoodsReceiptEventLine>(e =>
+        {
+            e.Property(x => x.UnitPrice).HasPrecision(18, 2);
+            e.HasIndex(x => new { x.GoodsReceiptEventId, x.OrderItemId }).IsUnique();
+            e.HasOne(x => x.GoodsReceiptEvent).WithMany(x => x.Lines).HasForeignKey(x => x.GoodsReceiptEventId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.OrderItem).WithMany(x => x.GoodsReceiptLines).HasForeignKey(x => x.OrderItemId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<InventoryWithdrawal>(e =>
