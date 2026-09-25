@@ -1,15 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, TableSortLabel, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, LinearProgress, Paper, Typography,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import { PageHeader } from '../components/PageHeader';
 import { ResponsiveSelectField } from '../components/ResponsiveSelectField';
 import { StatusBadge } from '../components/StatusBadge';
+import {
+  AppDataGrid,
+  AppDataGridToolbar,
+  DataGridStatusChip,
+} from '../components/data-grid';
 import { cancellationStatusLabel } from '../theme/tokens';
 import { listCancellations, resolveCancellation } from '../api/cancellationsApi';
 import type { CancellationResponse } from '../types/models';
 import { useAuth } from '../auth/AuthContext';
+
+const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
+
+const cancellationStatusOptions = [
+  { value: '', label: 'ทุกสถานะ' },
+  { value: 'RefundPending', label: 'รอคืนเงิน' },
+  { value: 'Refunded', label: 'คืนเงินแล้ว' },
+  { value: 'Adjusted', label: 'ปรับยอดแล้ว' },
+];
 
 export function CancellationsPage() {
   const { user } = useAuth();
@@ -17,9 +31,7 @@ export function CancellationsPage() {
 
   const [cancellations, setCancellations] = useState<CancellationResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState('RefundPending');
-  type SortField = 'id' | 'product' | 'order' | 'refund' | 'status' | 'flaggedAt';
-  const [sortField, setSortField] = useState<SortField>('flaggedAt');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [resolveTarget, setResolveTarget] = useState<{ id: number; productName: string; outcome: 'Refunded' | 'Adjusted' } | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -69,34 +81,124 @@ export function CancellationsPage() {
     setResolveTarget(null);
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortField(field); setSortDirection('asc'); }
-  };
-  const sortLabel = (field: SortField, label: string) => (
-    <TableSortLabel active={sortField === field} direction={sortField === field ? sortDirection : 'asc'} onClick={() => handleSort(field)}>{label}</TableSortLabel>
-  );
+  const filteredCancellations = useMemo(() => {
+    if (!search.trim()) return cancellations;
+    const q = search.trim().toLowerCase();
+    return cancellations.filter((c) =>
+      c.id.toString().includes(q) ||
+      c.productName.toLowerCase().includes(q) ||
+      c.platformOrderNo.toLowerCase().includes(q) ||
+      c.platformCode.toLowerCase().includes(q) ||
+      c.requestedByUsername.toLowerCase().includes(q) ||
+      (c.reportedByUsername && c.reportedByUsername.toLowerCase().includes(q)) ||
+      (c.resolvedByUsername && c.resolvedByUsername.toLowerCase().includes(q))
+    );
+  }, [cancellations, search]);
 
-  const visibleCancellations = useMemo(() => {
-    const valueFor = (c: CancellationResponse): string | number => {
-      switch (sortField) {
-        case 'id': return c.id;
-        case 'product': return c.productName;
-        case 'order': return c.platformOrderNo;
-        case 'refund': return c.refundAmount;
-        case 'status': return c.status;
-        case 'flaggedAt': return new Date(c.flaggedAt).getTime();
-        default: return '';
-      }
-    };
-    const mult = sortDirection === 'asc' ? 1 : -1;
-    return [...cancellations].sort((a, b) => {
-      const av = valueFor(a);
-      const bv = valueFor(b);
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv), 'th');
-      return cmp * mult;
-    });
-  }, [cancellations, sortField, sortDirection]);
+  const sortedCancellations = useMemo(() => {
+    return [...filteredCancellations].sort(
+      (a, b) => new Date(b.flaggedAt).getTime() - new Date(a.flaggedAt).getTime()
+    );
+  }, [filteredCancellations]);
+
+  const cancellationColumns: GridColDef<CancellationResponse>[] = useMemo(() => [
+    {
+      field: 'id',
+      headerName: '#',
+      width: 70,
+    },
+    {
+      field: 'productName',
+      headerName: 'สินค้า',
+      flex: 1.5,
+      minWidth: 180,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'order',
+      headerName: 'ออเดอร์',
+      width: 170,
+      valueGetter: (_v, row) => `${row.platformCode} · ${row.platformOrderNo}`,
+    },
+    {
+      field: 'users',
+      headerName: 'ผู้สั่ง / ผู้บันทึก',
+      flex: 1.3,
+      minWidth: 180,
+      renderCell: (params) => (
+        <Typography variant="caption" color="text.secondary">
+          {params.row.requestedByUsername} / {params.row.reportedByUsername ?? '—'} / {params.row.resolvedByUsername ?? '—'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'refundAmount',
+      headerName: 'จำนวน / เงินคืน',
+      type: 'number',
+      width: 170,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {params.row.quantity} ชิ้น · {thb.format(params.row.refundAmount)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'reimbursementId',
+      headerName: 'ผูกกับ reimbursement',
+      width: 190,
+      renderCell: (params) => (
+        <Typography variant="caption" color="text.secondary">
+          {params.value ? `Reimbursement #${params.value}` : '— (ยังไม่มีรายการเบิก)'}
+        </Typography>
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'สถานะ',
+      width: 150,
+      renderCell: (params) => (
+        <DataGridStatusChip
+          status={params.value}
+          label={cancellationStatusLabel[params.value] ?? params.value}
+        />
+      ),
+    },
+    {
+      field: 'flaggedAt',
+      headerName: 'วันที่ยกเลิก',
+      width: 130,
+      valueFormatter: (value: string) => new Date(value).toLocaleDateString('th-TH'),
+    },
+    {
+      field: 'actions',
+      headerName: 'จัดการ',
+      width: 200,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => {
+        const c = params.row;
+        if (!canResolve || c.status !== 'RefundPending') return null;
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', width: '100%' }}>
+            <Button size="small" variant="outlined" onClick={() => openResolveDialog(c, 'Refunded')}>
+              คืนเงินแล้ว
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => openResolveDialog(c, 'Adjusted')}>
+              ปรับยอดแทน
+            </Button>
+          </Box>
+        );
+      },
+    },
+  ], [canResolve]);
 
   return (
     <>
@@ -105,60 +207,45 @@ export function CancellationsPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {loading && <LinearProgress aria-label="กำลังโหลดรายการยกเลิก" sx={{ mb: 2 }} />}
 
-      <ResponsiveSelectField
-        label="สถานะ"
-        size="small"
-        value={statusFilter}
-        options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
-        onChange={(value) => setStatusFilter(String(value))}
-        sx={{ mb: 2, minWidth: 180 }}
-      />
+      {/* Mobile status select */}
+      <Box sx={{ display: { xs: 'block', lg: 'none' }, mb: 2 }}>
+        <ResponsiveSelectField
+          label="สถานะ"
+          size="small"
+          value={statusFilter}
+          options={[{ value: '', label: 'ทุกสถานะ' }, ...Object.entries(cancellationStatusLabel).map(([value, label]) => ({ value, label }))]}
+          onChange={(value) => setStatusFilter(String(value))}
+          sx={{ width: '100%' }}
+        />
+      </Box>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>{sortLabel('id', '#')}</TableCell>
-              <TableCell>{sortLabel('product', 'สินค้า')}</TableCell>
-              <TableCell>{sortLabel('order', 'ออเดอร์')}</TableCell>
-              <TableCell>ผู้สั่ง / ผู้บันทึก</TableCell>
-              <TableCell align="right">{sortLabel('refund', 'จำนวน / เงินคืน')}</TableCell>
-              <TableCell>ผูกกับ reimbursement</TableCell>
-              <TableCell>{sortLabel('status', 'สถานะ')}</TableCell>
-              <TableCell>{sortLabel('flaggedAt', 'วันที่ยกเลิก')}</TableCell>
-              <TableCell align="right">จัดการ</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {visibleCancellations.map((c) => (
-              <TableRow key={c.id} hover>
-                <TableCell>{c.id}</TableCell>
-                <TableCell>{c.productName}</TableCell>
-                <TableCell>{c.platformCode} · {c.platformOrderNo}</TableCell>
-                <TableCell>{c.requestedByUsername} / {c.reportedByUsername ?? '—'} / {c.resolvedByUsername ?? '—'}</TableCell>
-                <TableCell align="right">{c.quantity} ชิ้น · {new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(c.refundAmount)}</TableCell>
-                <TableCell>{c.reimbursementId ?? '— (ยังไม่มีรายการเบิกที่จ่ายแล้ว)'}</TableCell>
-                <TableCell><StatusBadge status={c.status} label={cancellationStatusLabel[c.status] ?? c.status} /></TableCell>
-                <TableCell>{new Date(c.flaggedAt).toLocaleDateString('th-TH')}</TableCell>
-                <TableCell align="right">
-                  {canResolve && c.status === 'RefundPending' && (
-                    <>
-                      <Button size="small" onClick={() => openResolveDialog(c, 'Refunded')}>คืนเงินแล้ว</Button>
-                      <Button size="small" onClick={() => openResolveDialog(c, 'Adjusted')}>ปรับยอดแทน</Button>
-                    </>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && visibleCancellations.length === 0 && (
-              <TableRow><TableCell colSpan={9} align="center">ไม่มีรายการ</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* Desktop DataGrid */}
+      <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 2 }}>
+        <AppDataGrid
+          rows={filteredCancellations}
+          columns={cancellationColumns}
+          getRowId={(row) => row.id}
+          loading={loading}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 10 } },
+          }}
+          pageSizeOptions={[10, 25, 50]}
+          autoHeight
+          toolbar={
+            <AppDataGridToolbar
+              statusOptions={cancellationStatusOptions}
+              selectedStatus={statusFilter}
+              onStatusChange={(v) => setStatusFilter(v)}
+              searchValue={search}
+              onSearchChange={(v) => setSearch(v)}
+              searchPlaceholder="ค้นหาสินค้า, เลขออเดอร์, ผู้ใช้…"
+            />
+          }
+        />
+      </Box>
 
       <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1.5 }}>
-        {visibleCancellations.map((c) => (
+        {sortedCancellations.map((c) => (
           <Paper key={c.id} variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
               <Box sx={{ minWidth: 0 }}>
@@ -188,7 +275,7 @@ export function CancellationsPage() {
             )}
           </Paper>
         ))}
-        {!loading && visibleCancellations.length === 0 && (
+        {!loading && sortedCancellations.length === 0 && (
           <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>ไม่มีรายการ</Paper>
         )}
       </Box>

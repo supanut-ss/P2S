@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton,
-  LinearProgress, Paper, Switch, Tab, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, TableSortLabel, Tabs, TextField, Typography, useMediaQuery, useTheme,
+  LinearProgress, Switch, Tab, Tabs, TextField, Typography, useMediaQuery, useTheme,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
+import {
+  AppDataGrid,
+  AppDataGridToolbar,
+} from '../components/data-grid';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { PageHeader } from '../components/PageHeader';
@@ -15,8 +19,6 @@ import {
   updatePlatform, updateProduct, updateUser, updateWithdrawalReason,
 } from '../api/masterDataApi';
 import type { PlatformResponse, ProductResponse, UserResponse, WithdrawalReasonResponse } from '../types/models';
-
-type SortDirection = 'asc' | 'desc';
 
 function TabPanel({
   active, id, labelledBy, children,
@@ -68,6 +70,7 @@ export function AdminPage() {
 
   // ── Products ──────────────────────────────────────────────────────────────
   const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [productSearch, setProductSearch] = useState('');
   const [newProductName, setNewProductName] = useState('');
   const [newProductSku, setNewProductSku] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('ทั่วไป');
@@ -85,11 +88,9 @@ export function AdminPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [productSortField, setProductSortField] = useState<'name' | 'sku' | 'category' | 'unit'>('name');
-  const [productSortDir, setProductSortDir] = useState<SortDirection>('asc');
-
   // ── Platforms ─────────────────────────────────────────────────────────────
   const [platforms, setPlatforms] = useState<PlatformResponse[]>([]);
+  const [platformSearch, setPlatformSearch] = useState('');
   const [newPlatformCode, setNewPlatformCode] = useState('');
   const [newPlatformName, setNewPlatformName] = useState('');
 
@@ -100,11 +101,9 @@ export function AdminPage() {
 
   const [deletingPlatform, setDeletingPlatform] = useState<PlatformResponse | null>(null);
 
-  const [platformSortField, setPlatformSortField] = useState<'code' | 'name'>('code');
-  const [platformSortDir, setPlatformSortDir] = useState<SortDirection>('asc');
-
   // ── Withdrawal reasons ────────────────────────────────────────────────────
   const [reasons, setReasons] = useState<WithdrawalReasonResponse[]>([]);
+  const [reasonSearch, setReasonSearch] = useState('');
   const [newReasonName, setNewReasonName] = useState('');
 
   const [editingReason, setEditingReason] = useState<WithdrawalReasonResponse | null>(null);
@@ -114,10 +113,9 @@ export function AdminPage() {
 
   const [deletingReason, setDeletingReason] = useState<WithdrawalReasonResponse | null>(null);
 
-  const [reasonSortDir, setReasonSortDir] = useState<SortDirection>('asc');
-
   // ── Users ─────────────────────────────────────────────────────────────────
   const [users, setUsers] = useState<UserResponse[]>([]);
+  const [userSearch, setUserSearch] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserFullName, setNewUserFullName] = useState('');
@@ -130,9 +128,6 @@ export function AdminPage() {
   const [editUserSubmitting, setEditUserSubmitting] = useState(false);
 
   const [deletingUser, setDeletingUser] = useState<UserResponse | null>(null);
-
-  const [userSortField, setUserSortField] = useState<'username' | 'fullName' | 'role'>('username');
-  const [userSortDir, setUserSortDir] = useState<SortDirection>('asc');
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const loadAll = async () => {
@@ -329,53 +324,56 @@ export function AdminPage() {
   };
 
   // ── Sort/filter helpers ───────────────────────────────────────────────────
-  const handleProductSort = (field: typeof productSortField) => {
-    if (productSortField === field) setProductSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setProductSortField(field); setProductSortDir('asc'); }
-  };
-  const productSortLabel = (field: typeof productSortField, label: string) => (
-    <TableSortLabel active={productSortField === field} direction={productSortField === field ? productSortDir : 'asc'} onClick={() => handleProductSort(field)}>{label}</TableSortLabel>
-  );
   const filteredProducts = useMemo(() => {
-    const valueFor = (p: ProductResponse) => (productSortField === 'name' ? p.name : productSortField === 'sku' ? p.skuCode : productSortField === 'category' ? p.category : p.unit);
-    const mult = productSortDir === 'asc' ? 1 : -1;
-    return [...products].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
-  }, [products, productSortField, productSortDir]);
+    let list = [...products];
+    if (productSearch.trim()) {
+      const q = productSearch.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.skuCode.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          p.unit.toLowerCase().includes(q)
+      );
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  }, [products, productSearch]);
 
-  const handlePlatformSort = (field: typeof platformSortField) => {
-    if (platformSortField === field) setPlatformSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setPlatformSortField(field); setPlatformSortDir('asc'); }
-  };
-  const platformSortLabel = (field: typeof platformSortField, label: string) => (
-    <TableSortLabel active={platformSortField === field} direction={platformSortField === field ? platformSortDir : 'asc'} onClick={() => handlePlatformSort(field)}>{label}</TableSortLabel>
-  );
   const filteredPlatforms = useMemo(() => {
-    const valueFor = (p: PlatformResponse) => (platformSortField === 'code' ? p.code : p.name);
-    const mult = platformSortDir === 'asc' ? 1 : -1;
-    return [...platforms].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
-  }, [platforms, platformSortField, platformSortDir]);
+    let list = [...platforms];
+    if (platformSearch.trim()) {
+      const q = platformSearch.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.code.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q)
+      );
+    }
+    return list.sort((a, b) => a.code.localeCompare(b.code, 'th'));
+  }, [platforms, platformSearch]);
 
-  const handleReasonSort = () => setReasonSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-  const reasonSortLabel = (label: string) => (
-    <TableSortLabel active direction={reasonSortDir} onClick={handleReasonSort}>{label}</TableSortLabel>
-  );
   const filteredReasons = useMemo(() => {
-    const mult = reasonSortDir === 'asc' ? 1 : -1;
-    return [...reasons].sort((a, b) => a.name.localeCompare(b.name, 'th') * mult);
-  }, [reasons, reasonSortDir]);
+    let list = [...reasons];
+    if (reasonSearch.trim()) {
+      const q = reasonSearch.trim().toLowerCase();
+      list = list.filter((r) => r.name.toLowerCase().includes(q));
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  }, [reasons, reasonSearch]);
 
-  const handleUserSort = (field: typeof userSortField) => {
-    if (userSortField === field) setUserSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setUserSortField(field); setUserSortDir('asc'); }
-  };
-  const userSortLabel = (field: typeof userSortField, label: string) => (
-    <TableSortLabel active={userSortField === field} direction={userSortField === field ? userSortDir : 'asc'} onClick={() => handleUserSort(field)}>{label}</TableSortLabel>
-  );
   const filteredUsers = useMemo(() => {
-    const valueFor = (u: UserResponse) => (userSortField === 'username' ? u.username : userSortField === 'fullName' ? u.fullName : u.role);
-    const mult = userSortDir === 'asc' ? 1 : -1;
-    return [...users].sort((a, b) => valueFor(a).localeCompare(valueFor(b), 'th') * mult);
-  }, [users, userSortField, userSortDir]);
+    let list = [...users];
+    if (userSearch.trim()) {
+      const q = userSearch.trim().toLowerCase();
+      list = list.filter(
+        (u) =>
+          u.username.toLowerCase().includes(q) ||
+          u.fullName.toLowerCase().includes(q) ||
+          u.role.toLowerCase().includes(q)
+      );
+    }
+    return list.sort((a, b) => a.username.localeCompare(b.username, 'th'));
+  }, [users, userSearch]);
 
   // ── Action cell helper ────────────────────────────────────────────────────
   const ActionButtons = ({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) => (
@@ -384,6 +382,223 @@ export function AdminPage() {
       <IconButton size="small" onClick={onDelete} aria-label="ลบ" color="error"><DeleteIcon fontSize="small" /></IconButton>
     </Box>
   );
+
+  const productColumns: GridColDef<ProductResponse>[] = useMemo(() => [
+    {
+      field: 'name',
+      headerName: 'ชื่อ',
+      flex: 1.5,
+      minWidth: 160,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'skuCode',
+      headerName: 'SKU',
+      width: 130,
+    },
+    {
+      field: 'category',
+      headerName: 'หมวดหมู่',
+      width: 140,
+      renderCell: (params) => <Chip size="small" label={params.value} />,
+    },
+    {
+      field: 'unit',
+      headerName: 'หน่วย',
+      width: 100,
+    },
+    {
+      field: 'actions',
+      headerName: 'แก้ไข / ลบ',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <ActionButtons
+          onEdit={() => openEditProduct(params.row)}
+          onDelete={() => setDeletingProduct(params.row)}
+        />
+      ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'เปิดใช้งาน',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Switch
+          checked={params.value}
+          onChange={() => handleToggleProduct(params.row)}
+          size="small"
+          slotProps={{ input: { 'aria-label': `เปิดใช้งานสินค้า ${params.row.name}` } }}
+        />
+      ),
+    },
+  ], []);
+
+  const platformColumns: GridColDef<PlatformResponse>[] = useMemo(() => [
+    {
+      field: 'code',
+      headerName: 'Code',
+      width: 110,
+      renderCell: (params) => <Chip label={params.value} size="small" />,
+    },
+    {
+      field: 'name',
+      headerName: 'ชื่อ',
+      flex: 1.5,
+      minWidth: 180,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'แก้ไข / ลบ',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <ActionButtons
+          onEdit={() => openEditPlatform(params.row)}
+          onDelete={() => setDeletingPlatform(params.row)}
+        />
+      ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'เปิดใช้งาน',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Switch
+          checked={params.value}
+          onChange={() => handleTogglePlatform(params.row)}
+          size="small"
+          slotProps={{ input: { 'aria-label': `เปิดใช้งาน ${params.row.name}` } }}
+        />
+      ),
+    },
+  ], []);
+
+  const reasonColumns: GridColDef<WithdrawalReasonResponse>[] = useMemo(() => [
+    {
+      field: 'name',
+      headerName: 'เหตุผล',
+      flex: 2,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'แก้ไข / ลบ',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <ActionButtons
+          onEdit={() => openEditReason(params.row)}
+          onDelete={() => setDeletingReason(params.row)}
+        />
+      ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'เปิดใช้งาน',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Switch
+          checked={params.value}
+          onChange={() => handleToggleReason(params.row)}
+          size="small"
+          slotProps={{ input: { 'aria-label': `เปิดใช้งานเหตุผล ${params.row.name}` } }}
+        />
+      ),
+    },
+  ], []);
+
+  const userColumns: GridColDef<UserResponse>[] = useMemo(() => [
+    {
+      field: 'username',
+      headerName: 'Username',
+      width: 150,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'fullName',
+      headerName: 'ชื่อเต็ม',
+      flex: 1.5,
+      minWidth: 180,
+    },
+    {
+      field: 'role',
+      headerName: 'Role',
+      width: 120,
+      renderCell: (params) => <Chip label={params.value} size="small" />,
+    },
+    {
+      field: 'actions',
+      headerName: 'แก้ไข / ลบ',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <ActionButtons
+          onEdit={() => openEditUser(params.row)}
+          onDelete={() => setDeletingUser(params.row)}
+        />
+      ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'เปิดใช้งาน',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      headerAlign: 'right',
+      align: 'right',
+      renderCell: (params) => (
+        <Switch
+          checked={params.value}
+          onChange={() => handleToggleUser(params.row)}
+          size="small"
+          slotProps={{ input: { 'aria-label': `เปิดใช้งานผู้ใช้ ${params.row.username}` } }}
+        />
+      ),
+    },
+  ], []);
 
   return (
     <>
@@ -410,31 +625,26 @@ export function AdminPage() {
 
 
         {/* Desktop table */}
-        <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <Table size="small">
-            <TableHead><TableRow>
-              <TableCell>{productSortLabel('name', 'ชื่อ')}</TableCell>
-              <TableCell>{productSortLabel('sku', 'SKU')}</TableCell>
-              <TableCell>{productSortLabel('category', 'หมวดหมู่')}</TableCell>
-              <TableCell>{productSortLabel('unit', 'หน่วย')}</TableCell>
-              <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
-            </TableRow></TableHead>
-            <TableBody>
-              {filteredProducts.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>{p.name}</TableCell>
-                  <TableCell>{p.skuCode}</TableCell>
-                  <TableCell>{p.category}</TableCell>
-                  <TableCell>{p.unit}</TableCell>
-                  <TableCell align="right">
-                    <ActionButtons onEdit={() => openEditProduct(p)} onDelete={() => setDeletingProduct(p)} />
-                  </TableCell>
-                  <TableCell align="right"><Switch checked={p.isActive} onChange={() => handleToggleProduct(p)} size="small" slotProps={{ input: { 'aria-label': `เปิดใช้งานสินค้า ${p.name}` } }} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 2 }}>
+          <AppDataGrid
+            rows={filteredProducts}
+            columns={productColumns}
+            loading={loading}
+            getRowId={(row) => row.id}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 10 } },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            autoHeight
+            toolbar={
+              <AppDataGridToolbar
+                searchValue={productSearch}
+                onSearchChange={(v) => setProductSearch(v)}
+                searchPlaceholder="ค้นหาสินค้า, SKU, หมวดหมู่…"
+              />
+            }
+          />
+        </Box>
 
         {/* Mobile cards */}
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
@@ -493,27 +703,26 @@ export function AdminPage() {
         </Box>
 
 
-        <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <Table size="small">
-            <TableHead><TableRow>
-              <TableCell>{platformSortLabel('code', 'Code')}</TableCell>
-              <TableCell>{platformSortLabel('name', 'ชื่อ')}</TableCell>
-              <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
-            </TableRow></TableHead>
-            <TableBody>
-              {filteredPlatforms.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell><Chip label={p.code} size="small" /></TableCell>
-                  <TableCell>{p.name}</TableCell>
-                  <TableCell align="right">
-                    <ActionButtons onEdit={() => openEditPlatform(p)} onDelete={() => setDeletingPlatform(p)} />
-                  </TableCell>
-                  <TableCell align="right"><Switch checked={p.isActive} onChange={() => handleTogglePlatform(p)} size="small" slotProps={{ input: { 'aria-label': `เปิดใช้งาน ${p.name}` } }} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 2 }}>
+          <AppDataGrid
+            rows={filteredPlatforms}
+            columns={platformColumns}
+            loading={loading}
+            getRowId={(row) => row.id}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 10 } },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            autoHeight
+            toolbar={
+              <AppDataGridToolbar
+                searchValue={platformSearch}
+                onSearchChange={(v) => setPlatformSearch(v)}
+                searchPlaceholder="ค้นหา Platform, Code…"
+              />
+            }
+          />
+        </Box>
 
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
           {filteredPlatforms.map((p) => (
@@ -564,25 +773,26 @@ export function AdminPage() {
         </Box>
 
 
-        <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <Table size="small">
-            <TableHead><TableRow>
-              <TableCell>{reasonSortLabel('เหตุผล')}</TableCell>
-              <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
-            </TableRow></TableHead>
-            <TableBody>
-              {filteredReasons.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{r.name}</TableCell>
-                  <TableCell align="right">
-                    <ActionButtons onEdit={() => openEditReason(r)} onDelete={() => setDeletingReason(r)} />
-                  </TableCell>
-                  <TableCell align="right"><Switch checked={r.isActive} onChange={() => handleToggleReason(r)} size="small" slotProps={{ input: { 'aria-label': `เปิดใช้งานเหตุผล ${r.name}` } }} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 2 }}>
+          <AppDataGrid
+            rows={filteredReasons}
+            columns={reasonColumns}
+            loading={loading}
+            getRowId={(row) => row.id}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 10 } },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            autoHeight
+            toolbar={
+              <AppDataGridToolbar
+                searchValue={reasonSearch}
+                onSearchChange={(v) => setReasonSearch(v)}
+                searchPlaceholder="ค้นหาเหตุผลเบิกของ…"
+              />
+            }
+          />
+        </Box>
 
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
           {filteredReasons.map((r) => (
@@ -640,29 +850,26 @@ export function AdminPage() {
         </Box>
 
 
-        <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <Table size="small">
-            <TableHead><TableRow>
-              <TableCell>{userSortLabel('username', 'Username')}</TableCell>
-              <TableCell>{userSortLabel('fullName', 'ชื่อเต็ม')}</TableCell>
-              <TableCell>{userSortLabel('role', 'Role')}</TableCell>
-              <TableCell align="right">แก้ไข / ลบ</TableCell><TableCell align="right">เปิดใช้งาน</TableCell>
-            </TableRow></TableHead>
-            <TableBody>
-              {filteredUsers.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell>{u.username}</TableCell>
-                  <TableCell>{u.fullName}</TableCell>
-                  <TableCell><Chip label={u.role} size="small" /></TableCell>
-                  <TableCell align="right">
-                    <ActionButtons onEdit={() => openEditUser(u)} onDelete={() => setDeletingUser(u)} />
-                  </TableCell>
-                  <TableCell align="right"><Switch checked={u.isActive} onChange={() => handleToggleUser(u)} size="small" slotProps={{ input: { 'aria-label': `เปิดใช้งานผู้ใช้ ${u.username}` } }} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: { xs: 'none', lg: 'block' }, mb: 2 }}>
+          <AppDataGrid
+            rows={filteredUsers}
+            columns={userColumns}
+            loading={loading}
+            getRowId={(row) => row.id}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 10 } },
+            }}
+            pageSizeOptions={[10, 25, 50]}
+            autoHeight
+            toolbar={
+              <AppDataGridToolbar
+                searchValue={userSearch}
+                onSearchChange={(v) => setUserSearch(v)}
+                searchPlaceholder="ค้นหาผู้ใช้, Username, Role…"
+              />
+            }
+          />
+        </Box>
 
         <Box sx={{ display: { xs: 'grid', lg: 'none' }, gap: 1 }}>
           {filteredUsers.map((u) => (
