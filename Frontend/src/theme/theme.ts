@@ -87,13 +87,16 @@ export function createAppTheme(mode: PaletteMode) {
             },
           },
           {
+            // Outlined/secondary actions stay neutral rather than a second, muted shade
+            // of gold next to filled gold CTAs — one accent color per view, gold reserved
+            // for the primary (contained) action.
             props: { variant: 'outlined', color: 'primary' },
             style: {
-              borderColor: color.primaryText,
-              color: color.primaryText,
+              borderColor: color.border,
+              color: color.foreground,
               '&:hover': {
-                borderColor: color.primaryTextHover,
-                color: color.primaryTextHover,
+                borderColor: color.mutedForeground,
+                backgroundColor: dark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(20, 28, 28, 0.03)',
               },
             },
           },
