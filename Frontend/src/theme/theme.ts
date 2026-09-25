@@ -187,6 +187,7 @@ export function createAppTheme(mode: PaletteMode) {
           root: {
             color: color.mutedForeground,
             fontWeight: 600,
+            whiteSpace: 'nowrap',
             '&:hover': { color: color.primaryTextHover },
             '&.Mui-active': {
               color: color.primaryText,

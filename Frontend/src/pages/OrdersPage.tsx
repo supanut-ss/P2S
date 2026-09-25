@@ -444,15 +444,31 @@ export function OrdersPage() {
       </Typography>
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
-        <Table size="small">
+        <Table
+          size="small"
+          sx={{
+            minWidth: 1300,
+            tableLayout: 'fixed',
+            '& .MuiTableBody-root > .MuiTableRow-root > .MuiTableCell-root': { verticalAlign: 'top' },
+          }}
+        >
+          <colgroup>
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '12%' }} />
+          </colgroup>
           <TableHead>
             <TableRow>
               <TableCell>แพลตฟอร์ม</TableCell>
+              <TableCell>เลข Order</TableCell>
               <TableCell sortDirection={sortField === 'item' ? sortDirection : false}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <Typography variant="body2">เลขออเดอร์</Typography>
-                  {sortLabel('item', 'สินค้า / Item')}
-                </Box>
+                {sortLabel('item', 'สินค้า / Item')}
               </TableCell>
               <TableCell>ผู้สั่ง</TableCell>
               <TableCell>แผนการจ่าย</TableCell>
@@ -469,8 +485,10 @@ export function OrdersPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredOrders.map((o) => (
-              <Fragment key={o.id}>
+            {filteredOrders.map((o) => {
+              const visibleItems = filterOrderItems(o, itemFilter);
+              return (
+                <Fragment key={o.id}>
               <TableRow hover>
                 <TableCell>{o.platformCode}</TableCell>
                 <TableCell>
@@ -483,11 +501,11 @@ export function OrdersPage() {
                       {o.shopName && <>ร้าน {o.shopName}</>}
                     </Typography>
                   )}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 210, overflowWrap: 'anywhere' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
                       Tracking {o.trackingNo || 'ยังไม่ระบุ'}{o.courier ? ` · ${o.courier}` : ''}
                     </Typography>
-                    <Button size="small" onClick={() => openTrackingDialog(o)} aria-label={`แก้ไข Tracking ของ Order ${o.platformOrderNo}`} sx={{ minWidth: 44, minHeight: 40, px: 0.5 }}>
+                    <Button size="small" onClick={() => openTrackingDialog(o)} aria-label={`แก้ไข Tracking ของ Order ${o.platformOrderNo}`} sx={{ minWidth: 44, minHeight: 32, px: 0.5, flexShrink: 0 }}>
                       แก้ไข
                     </Button>
                   </Box>
@@ -497,10 +515,20 @@ export function OrdersPage() {
                     aria-controls={`order-items-${o.id}`}
                     onClick={() => toggleOrderDetails(o.id)}
                     startIcon={expandedOrders.has(o.id) ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                    sx={{ minHeight: 44, px: 0.5 }}
+                    sx={{ minHeight: 32, px: 0.5 }}
                   >
                     {expandedOrders.has(o.id) ? 'ซ่อนรายการ' : `รายการสินค้า (${o.items.length})`}
                   </Button>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+                    {visibleItems[0]?.productName ?? '—'}
+                  </Typography>
+                  {visibleItems.length > 1 && (
+                    <Typography variant="caption" color="text.secondary">
+                      อีก {visibleItems.length - 1} รายการ
+                    </Typography>
+                  )}
                 </TableCell>
                 <TableCell>{o.orderedByUsername}</TableCell>
                 <TableCell>
@@ -521,7 +549,7 @@ export function OrdersPage() {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell colSpan={8} sx={{ p: 0, borderBottom: expandedOrders.has(o.id) ? undefined : 0 }}>
+                <TableCell colSpan={9} sx={{ p: 0, borderBottom: expandedOrders.has(o.id) ? undefined : 0 }}>
                   <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-${o.id}`}>
                     <TableContainer component={Paper} variant="outlined" sx={{ m: 1, width: 'calc(100% - 16px)', overflowX: 'auto' }}>
                       <Table size="small" sx={{ minWidth: 680 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
@@ -548,10 +576,11 @@ export function OrdersPage() {
                   </Collapse>
                 </TableCell>
               </TableRow>
-              </Fragment>
-            ))}
+                </Fragment>
+              );
+            })}
             {!loading && filteredOrders.length === 0 && (
-              <TableRow><TableCell colSpan={8} align="center">ไม่มีออเดอร์</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} align="center">ไม่มีออเดอร์</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
