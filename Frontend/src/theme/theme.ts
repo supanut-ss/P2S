@@ -1,4 +1,5 @@
 import { createTheme, type PaletteMode } from '@mui/material/styles';
+import type {} from '@mui/x-data-grid/themeAugmentation';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import { tokens } from './tokens';
 
@@ -233,6 +234,49 @@ export function createAppTheme(mode: PaletteMode) {
             fontSize: '1.1rem',
             marginLeft: 2,
             marginRight: 0,
+          },
+        },
+      },
+      MuiDataGrid: {
+        styleOverrides: {
+          root: {
+            border: 'none',
+            fontSize: '0.875rem',
+            fontVariantNumeric: 'tabular-nums',
+            '& .MuiDataGrid-columnHeaders': {
+              borderRadius: tokens.radius.xl,
+              backgroundColor: color.secondary,
+              color: color.mutedForeground,
+              borderBottom: 'none',
+            },
+            '& .MuiDataGrid-columnHeader': {
+              padding: '0 16px',
+              borderRight: 'none',
+              '&:focus, &:focus-within': {
+                outline: 'none',
+              },
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 700,
+            },
+            '& .MuiDataGrid-columnSeparator': {
+              display: 'none',
+            },
+            '& .MuiDataGrid-cell': {
+              padding: '0 16px',
+              borderBottom: `1px solid ${color.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              '&:focus, &:focus-within': {
+                outline: 'none',
+              },
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: dark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(20, 28, 28, 0.025)',
+            },
+            '& .MuiDataGrid-footerContainer': {
+              borderTop: `1px solid ${color.border}`,
+            },
           },
         },
       },
