@@ -14,6 +14,7 @@ import type { PurchaseOrderResponse, ReimbursementResponse, StaffBalanceResponse
 import { useAuth } from '../auth/AuthContext';
 
 const thb = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' });
+type ReimbursementOrderDetail = ReimbursementResponse['purchaseOrders'][number];
 
 export function ReimbursementsPage() {
   const { user } = useAuth();
@@ -158,6 +159,59 @@ export function ReimbursementsPage() {
     setCorrectionError(null);
   };
 
+  const canCorrectPayment = (request: ReimbursementResponse, order: ReimbursementOrderDetail) =>
+    canReviewReimbursements && ['Pending', 'Approved'].includes(request.status) && order.paymentSource === 'StaffAdvance';
+
+  const renderAuditItems = (order: ReimbursementOrderDetail) => (
+    <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+      {order.items.map((item) => (
+        <Typography key={item.id} variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
+          {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
+        </Typography>
+      ))}
+      {order.items.length === 0 && <Typography variant="caption" color="text.secondary">ไม่มีรายการสินค้า</Typography>}
+    </Stack>
+  );
+
+  const renderCorrectionButton = (request: ReimbursementResponse, order: ReimbursementOrderDetail) => (
+    canCorrectPayment(request, order) && (
+      <Button
+        size="small"
+        aria-label={`แก้ยอดจ่ายจริง Order ${order.platformOrderNo}`}
+        disabled={savingCorrection || busyId !== null}
+        onClick={() => openPaymentCorrection(request.id, order.id, order.platformOrderNo, order.actualPaidAmount ?? order.orderItemAmount)}
+      >
+        แก้ยอด
+      </Button>
+    )
+  );
+
+  const renderAmountCorrections = (order: ReimbursementOrderDetail, alignment: 'left' | 'right' = 'left') => (
+    order.amountCorrections.length > 0 && (
+      <Stack
+        spacing={0.5}
+        sx={{
+          maxWidth: alignment === 'right' ? 260 : 'none',
+          textAlign: alignment,
+          alignItems: alignment === 'right' ? 'flex-end' : 'stretch',
+        }}
+      >
+        {order.amountCorrections.map((correction) => (
+          <Box key={correction.id}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+              {thb.format(correction.previousActualPaidAmount)} → {thb.format(correction.correctedActualPaidAmount)} · {correction.correctedByUsername} · {new Date(correction.correctedAt).toLocaleString('th-TH')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>เหตุผล: {correction.reason}</Typography>
+            {correction.previousRequestStatus === 'Approved' && correction.previousApprovedByUsername && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>อนุมัติเดิมโดย {correction.previousApprovedByUsername}</Typography>
+            )}
+          </Box>
+        ))}
+      </Stack>
+    )
+  );
+
   const handleCorrectPaymentAmount = async () => {
     if (!editingPayment) return;
     const amount = Number(paymentAmountDraft);
@@ -209,10 +263,10 @@ export function ReimbursementsPage() {
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage(null)}>{message}</Alert>}
 
       {canReviewReimbursements && (
-        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>ยอดค้างแยกตามพนักงาน</Typography>
+        <Paper component="section" aria-labelledby="staff-balances-title" variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
+          <Typography id="staff-balances-title" variant="subtitle1" sx={{ fontWeight: 700 }}>ยอดค้างแยกตามพนักงาน</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>ยอดบวก = บริษัทค้างจ่ายพนักงาน · ยอดลบ = พนักงานต้องคืนบริษัท</Typography>
-          <TableContainer>
+          <TableContainer sx={{ display: { xs: 'none', lg: 'block' } }}>
             <Table size="small">
               <TableHead><TableRow>
                 <TableCell>พนักงาน</TableCell>
@@ -237,6 +291,34 @@ export function ReimbursementsPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' } }}>
+            {staffBalances.map((balance) => (
+              <Box key={balance.userId} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{balance.fullName}</Typography>
+                <Typography variant="caption" color="text.secondary">{balance.username}</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1, mt: 1.25 }}>
+                  {([
+                    ['สำรองจ่าย', balance.totalAdvanced],
+                    ['บริษัทจ่ายคืน', balance.totalReimbursed],
+                    ['คืน/ปรับยอดค้างสุทธิ', balance.totalRefundDue],
+                    ['ปรับยอดก่อนเบิก', balance.totalAdjustments],
+                  ] as const).map(([label, amount]) => (
+                    <Box key={label} sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>{label}</Typography>
+                      <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>{thb.format(amount)}</Typography>
+                    </Box>
+                  ))}
+                  <Box sx={{ gridColumn: '1 / -1', p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>ยอดค้างสุทธิ</Typography>
+                    <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>{thb.format(balance.balance)}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+            {!loading && staffBalances.length === 0 && (
+              <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>ยังไม่มีรายการค้าง</Typography>
+            )}
+          </Stack>
         </Paper>
       )}
 
@@ -380,9 +462,15 @@ export function ReimbursementsPage() {
         ))}
         {!loading && reimbursements.length === 0 && <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>ไม่มีคำขอเบิกเงิน</Typography>}
       </Stack>
-      <Dialog open={auditTarget !== null} onClose={() => setAuditTarget(null)} maxWidth="md" fullWidth>
-        <DialogTitle>ตรวจสอบคำขอ #{auditTarget?.id}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+      <Dialog
+        open={auditTarget !== null}
+        onClose={() => setAuditTarget(null)}
+        maxWidth="md"
+        fullWidth
+        sx={{ '& .MuiDialog-paper': { m: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'calc(100% - 32px)' }, height: { xs: '100dvh', sm: 'auto' }, maxHeight: { xs: '100dvh', sm: 'calc(100% - 32px)' }, borderRadius: { xs: 0, sm: 2 } } }}
+      >
+        <DialogTitle sx={{ pt: { xs: 'calc(16px + env(safe-area-inset-top))', sm: 2 }, px: { xs: 'max(16px, env(safe-area-inset-left))', sm: 3 } }}>ตรวจสอบคำขอ #{auditTarget?.id}</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1, px: { xs: 'max(24px, env(safe-area-inset-left))', sm: 3 }, pr: { xs: 'max(24px, env(safe-area-inset-right))', sm: 3 } }}>
           {auditTarget && (
             <>
               <Typography variant="body2">ผู้ขอเบิก: <strong>{auditTarget.requestedByUsername}</strong> · ยอดคำขอ: <strong>{thb.format(auditTarget.totalAmount)}</strong></Typography>
@@ -390,7 +478,7 @@ export function ReimbursementsPage() {
                 อนุมัติโดย {auditTarget.approvedByUsername ?? '—'}{auditTarget.approvedAt ? ` (${new Date(auditTarget.approvedAt).toLocaleString('th-TH')})` : ''}
                 {' · '}จ่ายโดย {auditTarget.paidByUsername ?? '—'}{auditTarget.paidAt ? ` (${new Date(auditTarget.paidAt).toLocaleString('th-TH')})` : ''}
               </Typography>
-              <TableContainer component={Paper} variant="outlined">
+              <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', lg: 'block' } }}>
                 <Table size="small">
                   <TableHead><TableRow>
                     <TableCell>ออเดอร์ / รายการสินค้า</TableCell>
@@ -405,53 +493,21 @@ export function ReimbursementsPage() {
                       <TableRow key={order.id}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>{order.platformCode} · {order.platformOrderNo}</Typography>
-                          <Stack spacing={0.25} sx={{ mt: 0.5 }}>
-                            {order.items.map((item) => (
-                              <Typography key={item.id} variant="caption" color="text.secondary">
-                                {item.productName} × {item.qty} · {thb.format(item.unitPrice)}/ชิ้น
-                                {item.returnedQty > 0 ? ` · ส่งคืน ${item.returnedQty}` : ''}
-                              </Typography>
-                            ))}
-                          </Stack>
+                          <Box sx={{ mt: 0.5 }}>{renderAuditItems(order)}</Box>
                         </TableCell>
                         <TableCell>{order.paymentPayerUsername ?? '—'} · {order.paymentSource === 'StaffAdvance' ? 'สำรองจ่าย' : order.paymentSource === 'CompanyDirect' ? 'บริษัทจ่ายตรง' : 'ข้อมูลเดิม'}<br /><Typography variant="caption" color="text.secondary">บันทึกโดย {order.paymentRecordedByUsername ?? '—'}</Typography></TableCell>
                         <TableCell align="right">{thb.format(order.orderItemAmount)}</TableCell>
                         <TableCell align="right">
                           <Stack spacing={0.5} sx={{ alignItems: 'flex-end' }}>
                             <Typography variant="body2">{order.actualPaidAmount === null ? '—' : thb.format(order.actualPaidAmount)}</Typography>
-                            {canReviewReimbursements && ['Pending', 'Approved'].includes(auditTarget.status) && order.paymentSource === 'StaffAdvance' && (
-                              <Button
-                                size="small"
-                                disabled={savingCorrection || busyId !== null}
-                                onClick={() => openPaymentCorrection(
-                                  auditTarget.id,
-                                  order.id,
-                                  order.platformOrderNo,
-                                  order.actualPaidAmount ?? order.orderItemAmount,
-                                )}
-                              >แก้ยอด</Button>
-                            )}
-                            {order.amountCorrections.length > 0 && (
-                              <Stack spacing={0.5} sx={{ maxWidth: 260, textAlign: 'right' }}>
-                                {order.amountCorrections.map((correction) => (
-                                  <Box key={correction.id}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                      {thb.format(correction.previousActualPaidAmount)} → {thb.format(correction.correctedActualPaidAmount)} · {correction.correctedByUsername} · {new Date(correction.correctedAt).toLocaleString('th-TH')}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>เหตุผล: {correction.reason}</Typography>
-                                    {correction.previousRequestStatus === 'Approved' && correction.previousApprovedByUsername && (
-                                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>อนุมัติเดิมโดย {correction.previousApprovedByUsername}</Typography>
-                                    )}
-                                  </Box>
-                                ))}
-                              </Stack>
-                            )}
+                            {renderCorrectionButton(auditTarget, order)}
+                            {renderAmountCorrections(order, 'right')}
                           </Stack>
                         </TableCell>
                         <TableCell align="right">{thb.format(order.reimbursableAmount)}</TableCell>
                         <TableCell align="right">
                           {order.hasPaymentEvidence
-                            ? <Button size="small" onClick={() => void downloadEvidence(order.id)}>เปิด</Button>
+                            ? <Button size="small" aria-label={`เปิดหลักฐานการจ่าย Order ${order.platformOrderNo}`} onClick={() => void downloadEvidence(order.id)}>เปิด</Button>
                             : <Typography variant="caption" color="text.secondary">ไม่มี</Typography>}
                         </TableCell>
                       </TableRow>
@@ -460,10 +516,45 @@ export function ReimbursementsPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              <Stack spacing={1} sx={{ display: { xs: 'flex', lg: 'none' } }}>
+                {auditTarget.purchaseOrders.map((order) => (
+                  <Paper key={order.id} variant="outlined" sx={{ p: 1.5, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
+                      {order.platformCode} · {order.platformOrderNo}
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>{renderAuditItems(order)}</Box>
+                    <Stack spacing={0.25} sx={{ mt: 1.25 }}>
+                      <Typography variant="caption" color="text.secondary">ผู้จ่าย / วิธีจ่าย</Typography>
+                      <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                        {order.paymentPayerUsername ?? '—'} · {order.paymentSource === 'StaffAdvance' ? 'สำรองจ่าย' : order.paymentSource === 'CompanyDirect' ? 'บริษัทจ่ายตรง' : 'ข้อมูลเดิม'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>บันทึกโดย {order.paymentRecordedByUsername ?? '—'}</Typography>
+                    </Stack>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 0.75, alignItems: 'center', mt: 1.25 }}>
+                      <Typography variant="body2" color="text.secondary">ยอดสินค้า</Typography>
+                      <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{thb.format(order.orderItemAmount)}</Typography>
+                      <Typography variant="body2" color="text.secondary">ยอดจ่ายจริง</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{order.actualPaidAmount === null ? '—' : thb.format(order.actualPaidAmount)}</Typography>
+                      <Typography variant="body2" color="text.secondary">ยอดเบิกสุทธิ</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{thb.format(order.reimbursableAmount)}</Typography>
+                    </Box>
+                    <Box sx={{ mt: 0.75 }}>
+                      {renderCorrectionButton(auditTarget, order)}
+                      {renderAmountCorrections(order)}
+                    </Box>
+                    {order.hasPaymentEvidence
+                      ? <Button fullWidth variant="outlined" aria-label={`เปิดหลักฐานการจ่าย Order ${order.platformOrderNo}`} onClick={() => void downloadEvidence(order.id)} sx={{ mt: 1, minHeight: 44 }}>เปิดหลักฐานการจ่าย</Button>
+                      : <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>ไม่มีหลักฐานการจ่าย</Typography>}
+                  </Paper>
+                ))}
+                {auditTarget.purchaseOrders.length === 0 && (
+                  <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>ไม่พบรายการออเดอร์</Typography>
+                )}
+              </Stack>
             </>
           )}
         </DialogContent>
-        <DialogActions><Button onClick={() => setAuditTarget(null)}>ปิด</Button></DialogActions>
+        <DialogActions sx={{ pb: { xs: 'calc(12px + env(safe-area-inset-bottom))', sm: 1 }, px: { xs: 'max(8px, env(safe-area-inset-left))', sm: 2 }, pr: { xs: 'max(8px, env(safe-area-inset-right))', sm: 2 } }}><Button onClick={() => setAuditTarget(null)}>ปิด</Button></DialogActions>
       </Dialog>
       <Dialog
         open={editingPayment !== null}
