@@ -359,7 +359,8 @@ export function InventoryPage() {
             />
           }
           emptyMessage="ไม่มีของในคลัง"
-          rowHeight={76}
+          getRowHeight={() => 'auto'}
+          sx={{ '& .MuiDataGrid-cell': { py: 1 } }}
         />
       </Box>
 

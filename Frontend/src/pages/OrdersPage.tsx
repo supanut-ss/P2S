@@ -640,27 +640,16 @@ export function OrdersPage() {
               onSearchChange={(v) => setSearch(v)}
               searchPlaceholder="ค้นหาเลขออเดอร์..."
               actions={
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FileDownloadOutlinedIcon />}
-                    onClick={() => void handleExportExcel()}
-                    disabled={loading || exporting || exportRowCount === 0 || invalidDateRange}
-                    sx={{ minHeight: 38, borderRadius: '8px' }}
-                  >
-                    {exporting ? 'กำลังเตรียม…' : `Export Excel (${exportRowCount})`}
-                  </Button>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={openDialog}
-                    sx={{ minHeight: 38, borderRadius: '8px' }}
-                  >
-                    สั่งของใหม่
-                  </Button>
-                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileDownloadOutlinedIcon />}
+                  onClick={() => void handleExportExcel()}
+                  disabled={loading || exporting || exportRowCount === 0 || invalidDateRange}
+                  sx={{ minHeight: 38, borderRadius: '8px' }}
+                >
+                  {exporting ? 'กำลังเตรียม…' : `Export Excel (${exportRowCount})`}
+                </Button>
               }
             >
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -693,7 +682,8 @@ export function OrdersPage() {
             </AppDataGridToolbar>
           }
           emptyMessage="ไม่มีออเดอร์"
-          rowHeight={80}
+          getRowHeight={() => 'auto'}
+          sx={{ '& .MuiDataGrid-cell': { py: 1 } }}
         />
       </Box>
 

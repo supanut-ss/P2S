@@ -32,7 +32,7 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
   renderDetailPanel,
   expandedRowIds: controlledExpandedIds,
   onExpandedRowIdsChange,
-  emptyMessage = 'ไม่มีข้อมูล',
+  emptyMessage = '\u0e44\u0e21\u0e48\u0e21\u0e35\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25',
   rowHeight = 72,
   loading = false,
   sx,
@@ -68,13 +68,16 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
   const finalColumns = useMemo<GridColDef<any>[]>(() => {
     if (!renderDetailPanel) return columns;
 
-    const totalColumns = columns.length + 1;
+    // +1 for expand toggle col, +1 more if checkboxSelection is enabled
+    const hasCheckbox = Boolean((rest as any).checkboxSelection);
+    const totalColumns = columns.length + 1 + (hasCheckbox ? 1 : 0);
 
     const wrappedColumns = columns.map((col) => ({
       ...col,
       renderCell: (params: any) => {
         if (params.row?.__isDetailRow) return null;
-        return col.renderCell ? col.renderCell(params) : params.value;
+        // Return undefined (not params.value) to let DataGrid handle default cell rendering
+        return col.renderCell ? col.renderCell(params) : undefined;
       },
     }));
 
@@ -105,7 +108,7 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
               e.stopPropagation();
               toggleRow(rowId);
             }}
-            aria-label={isExpanded ? 'ย่อรายละเอียด' : 'ขยายรายละเอียด'}
+            aria-label={isExpanded ? '\u0e22\u0e48\u0e2d\u0e23\u0e32\u0e22\u0e25\u0e30\u0e40\u0e2d\u0e35\u0e22\u0e14' : '\u0e02\u0e22\u0e32\u0e22\u0e23\u0e32\u0e22\u0e25\u0e30\u0e40\u0e2d\u0e35\u0e22\u0e14'}
             sx={{ p: 0.5 }}
           >
             {isExpanded ? <CustomCollapseIcon fontSize="small" /> : <CustomExpandIcon fontSize="small" />}
@@ -115,7 +118,7 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
     };
 
     return [expandCol, ...wrappedColumns];
-  }, [columns, renderDetailPanel, expandedIds, resolveRowId, toggleRow]);
+  }, [columns, renderDetailPanel, expandedIds, resolveRowId, toggleRow, rest]);
 
   // Insert synthetic detail rows when master row is expanded
   const finalRows = useMemo(() => {
@@ -207,7 +210,8 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
               padding: '0 16px',
               display: 'flex',
               alignItems: 'center',
-              overflow: 'visible',
+              // Keep overflow hidden at cell level to prevent content bleed
+              overflow: 'hidden',
               '&:focus, &:focus-within': {
                 outline: 'none',
               },
@@ -220,9 +224,11 @@ export function AppDataGrid<R extends GridValidRowModel = any>({
                   theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(20, 28, 28, 0.015)',
               },
             },
+            // Detail panel cell: allow overflow so sub-table renders correctly
             '& .app-data-grid-detail-row .MuiDataGrid-cell': {
               padding: 0,
               display: 'block',
+              overflow: 'visible',
               borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
             },
             ...sx,

@@ -398,10 +398,16 @@ export function ReimbursementsPage() {
       },
     },
     {
+      field: 'orderedAt',
+      headerName: 'วันที่สั่ง',
+      width: 110,
+      valueFormatter: (value: string) => new Date(value).toLocaleDateString('th-TH'),
+    },
+    {
       field: 'reimbursableAmount',
       headerName: 'ยอดเบิกสุทธิ',
       type: 'number',
-      width: 160,
+      width: 150,
       headerAlign: 'right',
       align: 'right',
       valueGetter: (_v, row) => row.reimbursableAmount ?? row.actualPaidAmount ?? row.totalAmount,
@@ -457,6 +463,18 @@ export function ReimbursementsPage() {
       headerName: 'วันที่ขอ',
       width: 130,
       valueFormatter: (value: string) => new Date(value).toLocaleDateString('th-TH'),
+    },
+    {
+      field: 'approvedAt',
+      headerName: 'อนุมัติเมื่อ',
+      width: 110,
+      valueFormatter: (value: string | null) => value ? new Date(value).toLocaleDateString('th-TH') : '—',
+    },
+    {
+      field: 'paidAt',
+      headerName: 'จ่ายเมื่อ',
+      width: 110,
+      valueFormatter: (value: string | null) => value ? new Date(value).toLocaleDateString('th-TH') : '—',
     },
     {
       field: 'actions',
