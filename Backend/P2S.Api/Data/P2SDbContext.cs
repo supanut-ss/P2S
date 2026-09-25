@@ -58,6 +58,8 @@ public class P2SDbContext : DbContext
         {
             e.Property(x => x.TotalAmount).HasPrecision(18, 2);
             e.Property(x => x.ActualPaidAmount).HasPrecision(18, 2);
+            e.Property(x => x.PackageName).HasMaxLength(200);
+            e.Property(x => x.ShopName).HasMaxLength(200);
             e.Property(x => x.RowVersion).HasDefaultValue(0u).IsConcurrencyToken();
             e.HasIndex(x => new { x.PlatformId, x.PlatformOrderNo }).IsUnique();
             e.HasOne(x => x.Platform).WithMany().HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);

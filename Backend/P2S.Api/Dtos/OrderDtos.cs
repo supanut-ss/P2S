@@ -4,24 +4,22 @@ public record CreateOrderItemRequest(
     int ProductId,
     int Qty,
     decimal UnitPrice,
-    string? PackageName = null,
     string? Model = null,
-    string? ShopName = null,
     string? Description = null);
 public record CreateOrderRequest(
     int PlatformId,
     string PlatformOrderNo,
     string PlannedPaymentSource,
     int? PlannedPaymentPayerUserId,
-    List<CreateOrderItemRequest> Items);
+    List<CreateOrderItemRequest> Items,
+    string? PackageName = null,
+    string? ShopName = null);
 
 public record OrderItemResponse(
     int Id,
     int ProductId,
     string ProductName,
-    string? PackageName,
     string? Model,
-    string? ShopName,
     string? Description,
     int Qty,
     decimal UnitPrice,
@@ -37,6 +35,8 @@ public record PurchaseOrderResponse(
     int Id,
     string PlatformCode,
     string PlatformOrderNo,
+    string? PackageName,
+    string? ShopName,
     decimal TotalAmount,
     string Status,
     DateTime OrderedAt,

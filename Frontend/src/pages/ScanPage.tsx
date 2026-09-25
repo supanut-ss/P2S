@@ -255,6 +255,13 @@ export function ScanPage() {
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                       สั่งเมื่อ {new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium' }).format(new Date(order.orderedAt))}
                     </Typography>
+                    {(order.packageName || order.shopName) && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, overflowWrap: "anywhere" }}>
+                        {order.packageName && <>หน้ากล่อง {order.packageName}</>}
+                        {order.packageName && order.shopName && " · "}
+                        {order.shopName && <>ร้าน {order.shopName}</>}
+                      </Typography>
+                    )}
                   </Box>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     <Button size="small" variant="text" disabled={!hasRemaining || isBusy} onClick={() => setOrderQuantities(order, true)} sx={{ minHeight: 44 }}>
@@ -298,9 +305,9 @@ export function ScanPage() {
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                             SKU {item.skuCode} · บรรทัด #{item.orderItemId} · สั่ง {item.qty} · รับแล้ว {item.receivedQty} · เหลือ {item.remainingQty} · {thb.format(item.unitPrice)}/ชิ้น
                           </Typography>
-                          {(item.packageName || item.model || item.shopName || item.trackingNo || item.description || item.arrivedAt) && (
+                          {(item.model || item.trackingNo || item.description || item.arrivedAt) && (
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
-                              {[item.packageName && `หน้ากล่อง ${item.packageName}`, item.model && `รุ่น ${item.model}`, item.shopName && `ร้าน ${item.shopName}`, item.trackingNo && `Tracking ${item.trackingNo}`, item.arrivedAt && `รับครั้งแรก ${new Date(item.arrivedAt).toLocaleDateString('th-TH')}`, item.description].filter(Boolean).join(' · ')}
+                              {[item.model && `รุ่น ${item.model}`, item.trackingNo && `Tracking ${item.trackingNo}`, item.arrivedAt && `รับครั้งแรก ${new Date(item.arrivedAt).toLocaleDateString('th-TH')}`, item.description].filter(Boolean).join(' · ')}
                             </Typography>
                           )}
                         </Box>

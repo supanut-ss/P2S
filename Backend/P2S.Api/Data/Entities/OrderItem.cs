@@ -16,9 +16,10 @@ public class OrderItem
     public decimal UnitPrice { get; set; }
     public OrderItemStatus Status { get; set; } = OrderItemStatus.Pending;
 
-    /// <summary>Label printed on the outside of the parcel for this purchased item.</summary>
+    /// <summary>Legacy per-item package label retained for existing orders. New orders store it on PurchaseOrder.</summary>
     public string? PackageName { get; set; }
     public string? Model { get; set; }
+    /// <summary>Legacy per-item shop name retained for existing orders. New orders store it on PurchaseOrder.</summary>
     public string? ShopName { get; set; }
     public string? Description { get; set; }
 

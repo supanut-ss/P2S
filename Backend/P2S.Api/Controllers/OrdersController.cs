@@ -33,11 +33,9 @@ public class OrdersController : ControllerBase
         {
             return BadRequest(new { message = "จำนวนสินค้าต้องมากกว่า 0 และราคาต้องไม่ติดลบ" });
         }
-        if (request.Items.Any(item =>
-            (item.PackageName?.Length ?? 0) > 200 ||
-            (item.Model?.Length ?? 0) > 200 ||
-            (item.ShopName?.Length ?? 0) > 200 ||
-            (item.Description?.Length ?? 0) > 1000))
+        if ((request.PackageName?.Length ?? 0) > 200 ||
+            (request.ShopName?.Length ?? 0) > 200 ||
+            request.Items.Any(item => (item.Model?.Length ?? 0) > 200 || (item.Description?.Length ?? 0) > 1000))
         {
             return BadRequest(new { message = "ชื่อหน้ากล่อง รุ่น และร้านต้องไม่เกิน 200 ตัวอักษร และรายละเอียดต้องไม่เกิน 1,000 ตัวอักษร" });
         }
@@ -72,6 +70,8 @@ public class OrdersController : ControllerBase
             PlatformId = request.PlatformId,
             OrderedByUserId = orderedByUserId,
             PlatformOrderNo = request.PlatformOrderNo.Trim(),
+            PackageName = NormalizeOptionalText(request.PackageName),
+            ShopName = NormalizeOptionalText(request.ShopName),
             Status = PurchaseOrderStatus.Ordered,
             TotalAmount = request.Items.Sum(i => i.Qty * i.UnitPrice),
             PlannedPaymentSource = plannedPaymentSource,
@@ -81,9 +81,7 @@ public class OrdersController : ControllerBase
         order.OrderItems = request.Items.Select(i => new OrderItem
         {
             ProductId = i.ProductId,
-            PackageName = NormalizeOptionalText(i.PackageName),
             Model = NormalizeOptionalText(i.Model),
-            ShopName = NormalizeOptionalText(i.ShopName),
             Description = NormalizeOptionalText(i.Description),
             Qty = i.Qty,
             UnitPrice = i.UnitPrice,
@@ -378,6 +376,8 @@ public class OrdersController : ControllerBase
         order.Id,
         order.Platform.Code,
         order.PlatformOrderNo,
+        OrderHeaderMetadataResolver.Resolve(order.PackageName, order.OrderItems.Select(i => i.PackageName)),
+        OrderHeaderMetadataResolver.Resolve(order.ShopName, order.OrderItems.Select(i => i.ShopName)),
         order.TotalAmount,
         order.Status.ToString(),
         order.OrderedAt,
@@ -395,7 +395,7 @@ public class OrdersController : ControllerBase
         order.PlannedPaymentPayerUserId,
         order.PlannedPaymentPayerUser?.Username,
         order.OrderItems.Select(i => new OrderItemResponse(
-            i.Id, i.ProductId, i.Product.Name, i.PackageName, i.Model, i.ShopName, i.Description,
+            i.Id, i.ProductId, i.Product.Name, i.Model, i.Description,
             i.Qty, i.UnitPrice, i.Status.ToString(), i.ReturnedQty,
             i.TrackingNo, i.Courier, i.ArrivedAt, i.CancelledAt)).ToList()
     );

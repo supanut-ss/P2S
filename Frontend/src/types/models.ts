@@ -42,9 +42,7 @@ export interface OrderItemResponse {
   id: number;
   productId: number;
   productName: string;
-  packageName: string | null;
   model: string | null;
-  shopName: string | null;
   description: string | null;
   qty: number;
   unitPrice: number;
@@ -60,6 +58,8 @@ export interface PurchaseOrderResponse {
   id: number;
   platformCode: string;
   platformOrderNo: string;
+  packageName: string | null;
+  shopName: string | null;
   totalAmount: number;
   status: PurchaseOrderStatus;
   orderedAt: string;
@@ -96,6 +96,8 @@ export interface GoodsReceiptOrderResponse {
   purchaseOrderId: number;
   platformCode: string;
   platformOrderNo: string;
+  packageName: string | null;
+  shopName: string | null;
   orderedAt: string;
   items: GoodsReceiptOrderLineResponse[];
   receiptHistory: GoodsReceiptEventResponse[];
@@ -105,9 +107,7 @@ export interface GoodsReceiptOrderLineResponse {
   orderItemId: number;
   productName: string;
   skuCode: string;
-  packageName: string | null;
   model: string | null;
-  shopName: string | null;
   trackingNo: string | null;
   arrivedAt: string | null;
   description: string | null;

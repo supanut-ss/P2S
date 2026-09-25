@@ -17,6 +17,8 @@ public record GoodsReceiptOrderResponse(
     int PurchaseOrderId,
     string PlatformCode,
     string PlatformOrderNo,
+    string? PackageName,
+    string? ShopName,
     DateTime OrderedAt,
     List<GoodsReceiptOrderLineResponse> Items,
     List<GoodsReceiptEventResponse> ReceiptHistory
@@ -26,9 +28,7 @@ public record GoodsReceiptOrderLineResponse(
     int OrderItemId,
     string ProductName,
     string SkuCode,
-    string? PackageName,
     string? Model,
-    string? ShopName,
     string? TrackingNo,
     DateTime? ArrivedAt,
     string? Description,

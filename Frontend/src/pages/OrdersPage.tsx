@@ -36,12 +36,15 @@ function localDayBoundary(value: string, dayOffset = 0) {
 function filterOrderItems(order: PurchaseOrderResponse, query: string) {
   const normalizedQuery = query.trim().toLocaleLowerCase('th-TH');
   if (!normalizedQuery) return order.items;
+  const orderMetadata = [order.packageName, order.shopName]
+    .filter(Boolean)
+    .join(' ')
+    .toLocaleLowerCase('th-TH');
+  if (orderMetadata.includes(normalizedQuery)) return order.items;
 
   return order.items.filter((item) => [
     item.productName,
-    item.packageName,
     item.model,
-    item.shopName,
     item.description,
     item.trackingNo,
   ].filter(Boolean).join(' ').toLocaleLowerCase('th-TH').includes(normalizedQuery));
@@ -71,6 +74,8 @@ export function OrdersPage() {
   const [orderScannerOpen, setOrderScannerOpen] = useState(false);
   const [formPlatformId, setFormPlatformId] = useState<number | ''>('');
   const [formOrderNo, setFormOrderNo] = useState('');
+  const [formPackageName, setFormPackageName] = useState('');
+  const [formShopName, setFormShopName] = useState('');
   const [formItems, setFormItems] = useState<CreateOrderItemInput[]>([{ productId: 0, qty: 1, unitPrice: 0 }]);
   const [formPaymentSource, setFormPaymentSource] = useState<PaymentSource>('StaffAdvance');
   const [formPaymentPayerUserId, setFormPaymentPayerUserId] = useState<number | ''>('');
@@ -117,6 +122,8 @@ export function OrdersPage() {
   const openDialog = () => {
     setFormPlatformId(platforms[0]?.id ?? '');
     setFormOrderNo('');
+    setFormPackageName('');
+    setFormShopName('');
     setFormItems([{ productId: products[0]?.id ?? 0, qty: 1, unitPrice: 0 }]);
     setFormPaymentSource('StaffAdvance');
     setFormPaymentPayerUserId(users.find((u) => u.role === 'admin')?.id ?? users[0]?.id ?? '');
@@ -189,9 +196,9 @@ export function OrdersPage() {
         'สถานะ': purchaseOrderStatusLabel[order.status] ?? order.status,
         'ผู้สั่ง': order.orderedByUsername,
         'สินค้า': item.productName,
-        'ชื่อหน้ากล่อง': item.packageName ?? '',
+        'ชื่อหน้ากล่อง': order.packageName ?? '',
         'รุ่น': item.model ?? '',
-        'ร้าน': item.shopName ?? '',
+        'ร้าน': order.shopName ?? '',
         'รายละเอียด': item.description ?? '',
         'จำนวน': item.qty,
         'ราคาต่อชิ้น': item.unitPrice,
@@ -233,6 +240,8 @@ export function OrdersPage() {
       await createOrder({
         platformId: formPlatformId,
         platformOrderNo: formOrderNo.trim(),
+        packageName: formPackageName.trim() || undefined,
+        shopName: formShopName.trim() || undefined,
         plannedPaymentSource: formPaymentSource,
         plannedPaymentPayerUserId: formPaymentSource === 'CompanyDirect' && formPaymentPayerUserId !== ''
           ? formPaymentPayerUserId
@@ -402,6 +411,14 @@ export function OrdersPage() {
                 <TableCell>{o.platformCode}</TableCell>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.platformOrderNo}</Typography>
+
+                  {(o.packageName || o.shopName) && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 240, overflowWrap: "anywhere" }}>
+                      {o.packageName && <>หน้ากล่อง {o.packageName}</>}
+                      {o.packageName && o.shopName && " · "}
+                      {o.shopName && <>ร้าน {o.shopName}</>}
+                    </Typography>
+                  )}
                   <Button
                     size="small"
                     aria-expanded={expandedOrders.has(o.id)}
@@ -435,13 +452,11 @@ export function OrdersPage() {
                 <TableCell colSpan={8} sx={{ p: 0, borderBottom: expandedOrders.has(o.id) ? undefined : 0 }}>
                   <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-${o.id}`}>
                     <TableContainer component={Paper} variant="outlined" sx={{ m: 1, width: 'calc(100% - 16px)', overflowX: 'auto' }}>
-                      <Table size="small" sx={{ minWidth: 980 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
+                      <Table size="small" sx={{ minWidth: 760 }} aria-label={`รายการสินค้า Order ${o.platformOrderNo}`}>
                         <TableHead>
                           <TableRow>
                             <TableCell>สินค้า</TableCell>
-                            <TableCell>ชื่อหน้ากล่อง</TableCell>
                             <TableCell>รุ่น</TableCell>
-                            <TableCell>ร้าน</TableCell>
                             <TableCell>TRACKING</TableCell>
                             <TableCell>วันที่รับของ</TableCell>
                             <TableCell>รายละเอียด</TableCell>
@@ -451,9 +466,7 @@ export function OrdersPage() {
                           {filterOrderItems(o, itemFilter).map((item) => (
                             <TableRow key={item.id}>
                               <TableCell>{item.productName}</TableCell>
-                              <TableCell>{item.packageName || '—'}</TableCell>
                               <TableCell>{item.model || '—'}</TableCell>
-                              <TableCell>{item.shopName || '—'}</TableCell>
                               <TableCell>
                                 {item.trackingNo || 'รอข้อมูลจากระบบ'}
                                 {item.courier ? ` · ${item.courier}` : ''}
@@ -507,6 +520,10 @@ export function OrdersPage() {
               </Typography>
               <Typography variant="body2" color="text.secondary">วันที่สั่ง</Typography>
               <Typography variant="body2">{new Date(o.orderedAt).toLocaleDateString('th-TH')}</Typography>
+              {(o.packageName || o.shopName) && (<>
+                <Typography variant="body2" color="text.secondary">ชื่อหน้ากล่อง</Typography><Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>{o.packageName || "—"}</Typography>
+                <Typography variant="body2" color="text.secondary">ร้าน</Typography><Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>{o.shopName || "—"}</Typography>
+              </>)}
             </Box>
             <Collapse in={expandedOrders.has(o.id)} timeout="auto" unmountOnExit id={`order-items-mobile-${o.id}`}>
               <Box sx={{ display: 'grid', gap: 1, mt: 2 }}>
@@ -514,9 +531,7 @@ export function OrdersPage() {
                   <Paper key={item.id} variant="outlined" sx={{ p: 1.5 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.productName}</Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, auto) minmax(0, 1fr)', gap: 0.75, mt: 1 }}>
-                      <Typography variant="body2" color="text.secondary">ชื่อหน้ากล่อง</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.packageName || '—'}</Typography>
                       <Typography variant="body2" color="text.secondary">รุ่น</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.model || '—'}</Typography>
-                      <Typography variant="body2" color="text.secondary">ร้าน</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.shopName || '—'}</Typography>
                       <Typography variant="body2" color="text.secondary">TRACKING</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.trackingNo || 'รอข้อมูลจากระบบ'}{item.courier ? ` · ${item.courier}` : ''}</Typography>
                       <Typography variant="body2" color="text.secondary">วันที่รับของ</Typography><Typography variant="body2">{receiptDateLabel(item.arrivedAt)}</Typography>
                       <Typography variant="body2" color="text.secondary">รายละเอียด</Typography><Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>{item.description || '—'}</Typography>
@@ -566,6 +581,11 @@ export function OrdersPage() {
             </Button>
           </Box>
 
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" }, gap: 1.25 }}>
+            <TextField fullWidth label="ชื่อหน้ากล่อง" value={formPackageName} onChange={(e) => setFormPackageName(e.target.value)} slotProps={{ htmlInput: { maxLength: 200 } }} />
+            <TextField fullWidth label="ร้าน" value={formShopName} onChange={(e) => setFormShopName(e.target.value)} slotProps={{ htmlInput: { maxLength: 200 } }} />
+          </Box>
+
           <ResponsiveSelectField
             label="ใครเป็นผู้จ่ายเงิน"
             value={formPaymentSource}
@@ -610,9 +630,7 @@ export function OrdersPage() {
                 </IconButton>
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.25, mt: 1.25 }}>
-                <TextField fullWidth label="ชื่อหน้ากล่อง" value={item.packageName ?? ''} onChange={(e) => updateItem(idx, { packageName: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
                 <TextField fullWidth label="รุ่น" value={item.model ?? ''} onChange={(e) => updateItem(idx, { model: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
-                <TextField fullWidth label="ร้าน" value={item.shopName ?? ''} onChange={(e) => updateItem(idx, { shopName: e.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
                 <TextField fullWidth label="รายละเอียดเพิ่มเติม" multiline minRows={2} value={item.description ?? ''} onChange={(e) => updateItem(idx, { description: e.target.value })} helperText="ยี่ห้อ รุ่น หรือรายละเอียดอื่น ๆ" slotProps={{ htmlInput: { maxLength: 1000 } }} sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' } }} />
                 <TextField fullWidth label="จำนวน" type="number" value={item.qty} onChange={(e) => updateItem(idx, { qty: Number(e.target.value) })} slotProps={{ htmlInput: { min: 1, step: 1, inputMode: 'numeric' } }} />
                 <TextField fullWidth label="ราคา/ชิ้น" type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })} slotProps={{ htmlInput: { min: 0, step: '0.01', inputMode: 'decimal' } }} />

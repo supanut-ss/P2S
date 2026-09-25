@@ -11,6 +11,8 @@ public class PurchaseOrder
 
     /// <summary>Order number as shown in the platform's own app — unique within its platform.</summary>
     public string PlatformOrderNo { get; set; } = null!;
+    public string? PackageName { get; set; }
+    public string? ShopName { get; set; }
     public decimal TotalAmount { get; set; }
     public decimal? ActualPaidAmount { get; set; }
     public PaymentSource? PlannedPaymentSource { get; set; }

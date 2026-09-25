@@ -5,9 +5,7 @@ export interface CreateOrderItemInput {
   productId: number;
   qty: number;
   unitPrice: number;
-  packageName?: string;
   model?: string;
-  shopName?: string;
   description?: string;
 }
 
@@ -16,6 +14,8 @@ export async function createOrder(payload: {
   platformOrderNo: string;
   plannedPaymentSource: 'StaffAdvance' | 'CompanyDirect';
   plannedPaymentPayerUserId?: number;
+  packageName?: string;
+  shopName?: string;
   items: CreateOrderItemInput[];
 }): Promise<PurchaseOrderResponse> {
   const { data } = await apiClient.post<PurchaseOrderResponse>('/api/orders', payload);
