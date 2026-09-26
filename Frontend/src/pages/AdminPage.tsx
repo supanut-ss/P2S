@@ -398,7 +398,8 @@ export function AdminPage() {
     {
       field: 'skuCode',
       headerName: 'SKU',
-      width: 130,
+      flex: 1.2,
+      minWidth: 200,
     },
     {
       field: 'category',
