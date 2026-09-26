@@ -771,7 +771,7 @@ export function OrdersPage() {
               '& .MuiInputLabel-root.MuiInputLabel-shrink': { transform: 'translate(14px, -24px) scale(0.75)' },
             }}
           />
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField
               fullWidth
               label="เลขออเดอร์ (จากแอพ)"
@@ -782,7 +782,7 @@ export function OrdersPage() {
               variant="outlined"
               startIcon={<CameraAltIcon />}
               onClick={() => setOrderScannerOpen(true)}
-              sx={{ minHeight: 56, flexShrink: 0 }}
+              sx={{ flexShrink: 0 }}
             >
               สแกน
             </Button>

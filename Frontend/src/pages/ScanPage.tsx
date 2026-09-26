@@ -489,7 +489,7 @@ export function ScanPage() {
 
       <Card component="form" variant="outlined" onSubmit={(event) => { event.preventDefault(); void handleLookup(); }} sx={{ mb: 3 }}>
         <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(0, 1fr) auto auto auto' }, gap: 1.5, alignItems: 'start' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(0, 1fr) auto auto auto' }, gap: 1.5 }}>
             <TextField
               inputRef={orderNoInput}
               label="เลข Order / Tracking / ชื่อหน้ากล่อง"
@@ -499,14 +499,13 @@ export function ScanPage() {
               value={orderNo}
               onChange={(event) => setOrderNo(event.target.value)}
               slotProps={{ htmlInput: { 'aria-label': 'เลข Order', inputMode: 'text' } }}
-              helperText="ค้นหาด้วยเลข Order, เลข Tracking หรือชื่อหน้ากล่อง"
             />
             <Button
               variant="outlined"
               startIcon={<CameraAltIcon />}
               onClick={() => setScannerOpen(true)}
               disabled={searching || busyOrderIds.size > 0}
-              sx={{ minHeight: 56, px: 2, width: { xs: 'auto', sm: 'auto' } }}
+              sx={{ px: 2, width: { xs: 'auto', sm: 'auto' } }}
               aria-label="สแกนบาร์โค้ดด้วยกล้อง"
             >
               สแกน
@@ -515,7 +514,7 @@ export function ScanPage() {
               type="submit"
               variant="contained"
               disabled={searching || busyOrderIds.size > 0}
-              sx={{ minHeight: 56, px: 3, width: { xs: '100%', sm: 'auto' } }}
+              sx={{ px: 3, width: { xs: '100%', sm: 'auto' } }}
             >
               {searching ? 'กำลังค้นหา…' : 'ค้นหา Order'}
             </Button>
@@ -524,12 +523,15 @@ export function ScanPage() {
                 variant="text"
                 onClick={() => void handleResetSearch()}
                 disabled={searching}
-                sx={{ minHeight: 56, px: 2 }}
+                sx={{ px: 2 }}
               >
                 ดูทั้งหมด
               </Button>
             )}
           </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            ค้นหาด้วยเลข Order, เลข Tracking หรือชื่อหน้ากล่อง
+          </Typography>
           {searching && <LinearProgress aria-label="กำลังค้นหา Order" sx={{ mt: 2 }} />}
         </CardContent>
       </Card>
