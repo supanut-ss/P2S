@@ -49,20 +49,25 @@ test('2. staff creates an order for that product and marks it paid', async ({ pa
   await expect(orderRow.getByText('สั่งแล้ว')).toBeVisible();
 
   await orderRow.getByRole('button', { name: 'จ่ายแล้ว' }).click();
+  await page.getByRole('button', { name: 'บันทึก' }).click();
   await expect(orderRow.getByText('จ่ายแล้ว (รอเบิก)')).toBeVisible();
 });
 
 test('3. scan-confirms arrival, which auto-creates the inventory lot', async ({ page }) => {
   await page.goto('/scan');
-  await page.getByLabel('ค้นหาเลขออเดอร์ / tracking / ชื่อสินค้า').fill(orderNo);
-  await page.getByRole('button', { name: 'ค้นหา', exact: true }).click();
+  await page.getByLabel('เลข Order', { exact: true }).fill(orderNo);
+  await page.getByRole('button', { name: 'ค้นหา Order', exact: true }).click();
 
-  const itemCard = page.locator('.MuiCard-root', { hasText: productName });
-  await expect(itemCard).toBeVisible();
-  await itemCard.getByLabel('เลข tracking (สแกน/กรอกเอง)').fill(`TRACK-${runId}`);
-  await itemCard.getByRole('button', { name: 'ยืนยันรับของ' }).click();
+  const orderRow = page.getByRole('row', { name: new RegExp(orderNo) });
+  await expect(orderRow).toBeVisible();
+  await orderRow.getByRole('button', { name: 'ขยายรายละเอียด' }).click();
 
-  await expect(page.getByText(`รับของ ${productName} เข้าคลังแล้ว`)).toBeVisible();
+  // The detail panel pre-fills "มาถึงรอบนี้" with the full remaining quantity per item,
+  // so receiving everything is just confirming — no per-item tracking field in this flow.
+  await expect(page.getByText(`รายการสินค้าใน Order ${orderNo}`)).toBeVisible();
+  await page.getByRole('button', { name: /^บันทึกรับเข้าคลัง/ }).click();
+
+  await expect(page.getByText(/รับสินค้า .* เข้าคลังแล้ว/)).toBeVisible();
 });
 
 test('4. withdraws stock from the newly received lot', async ({ page }) => {
@@ -72,35 +77,47 @@ test('4. withdraws stock from the newly received lot', async ({ page }) => {
   // is visible at all is enough here; the real assertion is the post-withdrawal count below.
   await expect(inventoryRow).toBeVisible();
 
-  // Expand master row to reveal lot actions
+  // Expand master row to reveal lot actions — the detail panel is a separate DataGrid
+  // row in the DOM (not nested under the master row), so scope by its own accessible
+  // name (`aria-label="ล็อตสินค้า SKU {skuCode}"` on the lot table) rather than a
+  // page-wide "first() เบิกออก button", which would hit whichever SKU's panel happens
+  // to be expanded first if more than one is open (e.g. leftover rows from prior runs).
   const expandBtn = inventoryRow.getByRole('button', { name: 'ขยายรายละเอียด' });
   if (await expandBtn.isVisible()) {
     await expandBtn.click();
   }
-  await page.getByRole('button', { name: 'เบิกออก' }).first().click();
+  const lotTable = page.getByRole('table', { name: `ล็อตสินค้า SKU ${skuCode}` });
+  await expect(lotTable).toBeVisible();
+  await lotTable.getByRole('button', { name: 'เบิกออก' }).first().click();
   await page.getByLabel('จำนวน').fill('2');
   await selectMuiOption(page, 'เหตุผล', 'ขาย');
   await page.getByRole('button', { name: 'เบิกออก' }).click();
 
   await expect(page.getByRole('dialog')).not.toBeVisible();
   const updatedRow = page.getByRole('row', { name: new RegExp(skuCode) });
-  await expect(updatedRow.locator('[role="cell"], [role="gridcell"]', { hasText: '3' })).toBeVisible();
+  await expect(updatedRow.locator('[data-field="qtyOnHand"]')).toHaveText('3');
 });
 
 test('5. requests, approves, and pays the reimbursement; order flips to Reimbursed', async ({ page }) => {
   await page.goto('/reimbursements');
   const eligibleRow = page.getByRole('row', { name: new RegExp(orderNo) });
   await expect(eligibleRow).toBeVisible();
-  await eligibleRow.click();
+  // AppDataGrid's checkboxSelection only toggles via the checkbox cell itself —
+  // clicking elsewhere in the row doesn't flip selection (unlike the old plain table).
+  await eligibleRow.getByRole('checkbox').click();
   await page.getByRole('button', { name: 'ส่งคำขอเบิกเงิน' }).click();
 
   await expect(page.getByText('ส่งคำขอเบิกเงินแล้ว')).toBeVisible();
-  const reimbursementRow = page.locator('tr, [role="row"]', { hasText: 'รอตรวจสอบ' }).first();
-  await reimbursementRow.getByRole('button', { name: 'อนุมัติ' }).click();
+  // Scoped by orderNo rather than an unscoped "first() row with this status text" —
+  // accumulated leftover rows from prior E2E runs share the same status labels, so an
+  // unscoped .first() can silently act on someone else's reimbursement request.
+  const requestRow = page.getByRole('row', { name: new RegExp(orderNo) });
+  await expect(requestRow.getByText('รอตรวจสอบ')).toBeVisible();
+  await requestRow.getByRole('button', { name: 'อนุมัติ' }).click();
 
-  const approvedRow = page.locator('tr, [role="row"]', { hasText: 'อนุมัติแล้ว' }).first();
-  await approvedRow.getByRole('button', { name: 'จ่ายเงิน' }).click();
-  await expect(page.locator('tr, [role="row"]', { hasText: 'จ่ายแล้ว' }).first()).toBeVisible();
+  await expect(requestRow.getByText('อนุมัติแล้ว')).toBeVisible();
+  await requestRow.getByRole('button', { name: 'จ่ายเงิน' }).click();
+  await expect(requestRow.getByText('จ่ายแล้ว')).toBeVisible();
 
   await page.goto('/orders');
   const orderRow = page.getByRole('row', { name: new RegExp(orderNo) });

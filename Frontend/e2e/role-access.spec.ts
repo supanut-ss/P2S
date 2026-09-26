@@ -19,18 +19,18 @@ test('admin creates a staff and a finance user', async ({ page }) => {
   await page.goto('/admin');
   await page.getByRole('tab', { name: 'ผู้ใช้งาน' }).click();
 
-  await page.getByLabel('Username').fill(staffUsername);
+  await page.getByLabel('Username', { exact: true }).fill(staffUsername);
   await page.getByLabel('Password ชั่วคราว').fill(password);
-  await page.getByLabel('ชื่อเต็ม').fill('E2E Staff');
+  await page.getByLabel('ชื่อเต็ม', { exact: true }).fill('E2E Staff');
   await page.getByRole('button', { name: 'เพิ่ม' }).click();
-  await expect(page.getByRole('cell', { name: staffUsername, exact: true })).toBeVisible();
+  await expect(page.locator('[role="cell"], [role="gridcell"]', { hasText: staffUsername })).toBeVisible();
 
-  await page.getByLabel('Username').fill(financeUsername);
+  await page.getByLabel('Username', { exact: true }).fill(financeUsername);
   await page.getByLabel('Password ชั่วคราว').fill(password);
-  await page.getByLabel('ชื่อเต็ม').fill('E2E Finance');
+  await page.getByLabel('ชื่อเต็ม', { exact: true }).fill('E2E Finance');
   await selectMuiOption(page, 'Role', 'finance');
   await page.getByRole('button', { name: 'เพิ่ม' }).click();
-  await expect(page.getByRole('cell', { name: financeUsername, exact: true })).toBeVisible();
+  await expect(page.locator('[role="cell"], [role="gridcell"]', { hasText: financeUsername })).toBeVisible();
 });
 
 test('staff sees only staff-relevant nav items and cannot reach admin-only routes by URL', async ({ page }) => {
